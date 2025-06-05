@@ -1,8 +1,10 @@
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import Column, JSON
 from typing import Optional, List
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 import enum
+from .schemas import SkillBonuses, SkillAbilities
 
 
 class SkillCategory(str, enum.Enum):
@@ -35,20 +37,20 @@ class Skill(SQLModel, table=True):
     experience_multiplier: float = Field(default=1.1)  # Experience scaling per level
     
     # Prerequisites
-    prerequisite_skills: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
+    prerequisite_skills: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
     min_character_level: int = Field(default=1)
     
     # Skill effects and bonuses
-    stat_bonuses: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
-    abilities: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
+    stat_bonuses: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
+    abilities: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
     
     # Display order and grouping
     sort_order: int = Field(default=0)
     is_active: bool = Field(default=True)
     
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now())
+    updated_at: datetime = Field(default_factory=lambda: datetime.now())
     
     # Relationships
     character_skills: List["CharacterSkill"] = Relationship(back_populates="skill")
@@ -81,8 +83,8 @@ class CharacterSkill(SQLModel, table=True):
     is_favorite: bool = Field(default=False)   # Player marked as favorite skill
     
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now())
+    updated_at: datetime = Field(default_factory=lambda: datetime.now())
     
     # Relationships
     character: "Character" = Relationship(back_populates="skills")
@@ -96,8 +98,8 @@ SKILL_DEFINITIONS = {
         {
             "name": "Swordsmanship",
             "description": "Expertise in sword combat, increasing damage and accuracy with bladed weapons.",
-            "stat_bonuses": {"melee_damage": 2, "accuracy": 1},
-            "abilities": {"parry": True, "riposte": True}
+            "stat_bonuses": SkillBonuses(melee_damage=2, accuracy=1).model_dump(),
+            "abilities": SkillAbilities(abilities={"parry": True, "riposte": True}).model_dump()
         },
         {
             "name": "Archery", 

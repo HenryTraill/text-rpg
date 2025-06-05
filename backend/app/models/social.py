@@ -19,7 +19,7 @@ class Guild(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     name: str = Field(index=True, unique=True)
     description: Optional[str] = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now())
     
     # Relationships
     members: List["GuildMember"] = Relationship(back_populates="guild")
@@ -33,7 +33,7 @@ class GuildMember(SQLModel, table=True):
     guild_id: UUID = Field(foreign_key="guilds.id", index=True)
     character_id: UUID = Field(foreign_key="characters.id", index=True)
     role: GuildRole = Field(default=GuildRole.MEMBER)
-    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    joined_at: datetime = Field(default_factory=lambda: datetime.now())
     
     # Relationships
     guild: Guild = Relationship(back_populates="members")
@@ -47,7 +47,7 @@ class Party(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     name: Optional[str] = Field(default=None)
     leader_id: UUID = Field(foreign_key="characters.id")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now())
 
 
 class PartyMember(SQLModel, table=True):
@@ -57,7 +57,7 @@ class PartyMember(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     party_id: UUID = Field(foreign_key="parties.id", index=True)
     character_id: UUID = Field(foreign_key="characters.id", index=True)
-    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    joined_at: datetime = Field(default_factory=lambda: datetime.now())
     
     # Relationships
     character: "Character" = Relationship(back_populates="party_memberships")
@@ -71,4 +71,4 @@ class Friendship(SQLModel, table=True):
     character_1_id: UUID = Field(foreign_key="characters.id", index=True)
     character_2_id: UUID = Field(foreign_key="characters.id", index=True)
     status: str = Field(default="pending")  # pending, accepted, blocked
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now())

@@ -1,4 +1,5 @@
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import Column, JSON
 from typing import Optional, List
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
@@ -43,14 +44,14 @@ class User(SQLModel, table=True):
     is_verified: bool = Field(default=False)
     
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now())
+    updated_at: datetime = Field(default_factory=lambda: datetime.now())
     last_login: Optional[datetime] = Field(default=None)
     
     # Account limits and preferences
     max_characters: int = Field(default=5)
-    chat_settings: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
-    privacy_settings: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
+    chat_settings: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
+    privacy_settings: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
     
     # Login tracking
     login_attempts: int = Field(default=0)
@@ -85,9 +86,9 @@ class UserSession(SQLModel, table=True):
     is_active: bool = Field(default=True)
     
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now())
     expires_at: datetime
-    last_activity: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_activity: datetime = Field(default_factory=lambda: datetime.now())
     
     # Relationships
     user: User = Relationship(back_populates="sessions")

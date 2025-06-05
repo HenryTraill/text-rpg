@@ -1,4 +1,5 @@
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import Column, JSON
 from typing import Optional, List
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
@@ -51,13 +52,13 @@ class Character(SQLModel, table=True):
     available_skill_points: int = Field(default=0)
     
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now())
+    updated_at: datetime = Field(default_factory=lambda: datetime.now())
     last_login: Optional[datetime] = Field(default=None)
     last_logout: Optional[datetime] = Field(default=None)
     
     # Character preferences and settings
-    settings: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
+    settings: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
     
     # Relationships
     user: "User" = Relationship(back_populates="characters")
@@ -97,7 +98,7 @@ class CharacterLocation(SQLModel, table=True):
     previous_y: Optional[float] = Field(default=None)
     
     # Timestamps
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now())
     
     # Relationships
     character: Character = Relationship(back_populates="location_history")

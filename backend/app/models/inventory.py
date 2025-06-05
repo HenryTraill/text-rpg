@@ -1,8 +1,10 @@
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import Column, JSON
 from typing import Optional, List
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 import enum
+from .schemas import ItemStats, ItemEffects, ItemAttributes, Enchantments
 
 
 class ItemType(str, enum.Enum):
@@ -65,12 +67,12 @@ class Item(SQLModel, table=True):
     # Equipment properties (if applicable)
     equipment_slot: Optional[EquipmentSlot] = Field(default=None)
     required_level: int = Field(default=1, ge=1)
-    required_skills: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
+    required_skills: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
     
     # Item stats and effects (flexible JSON storage)
-    stats: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
-    effects: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
-    attributes: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
+    stats: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
+    effects: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
+    attributes: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
     
     # Durability system
     max_durability: Optional[int] = Field(default=None)
@@ -91,8 +93,8 @@ class Item(SQLModel, table=True):
     lore_text: Optional[str] = Field(default=None)
     
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now())
+    updated_at: datetime = Field(default_factory=lambda: datetime.now())
     
     # Relationships
     inventory_slots: List["InventorySlot"] = Relationship(back_populates="item")
@@ -127,14 +129,14 @@ class InventorySlot(SQLModel, table=True):
     
     # Item customization
     custom_name: Optional[str] = Field(default=None)
-    enchantments: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
+    enchantments: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
     
     # Item binding
     is_bound: bool = Field(default=False)
     bound_to_character: bool = Field(default=False)
     
     # Timestamps
-    acquired_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    acquired_at: datetime = Field(default_factory=lambda: datetime.now())
     last_used: Optional[datetime] = Field(default=None)
     
     # Relationships
@@ -154,7 +156,7 @@ STARTER_ITEMS = [
         "weight": 3.0,
         "equipment_slot": EquipmentSlot.MAIN_HAND,
         "required_level": 1,
-        "stats": {"damage": 10, "accuracy": 5},
+        "stats": ItemStats(damage=10, accuracy=5).model_dump(),
         "max_durability": 100
     },
     
@@ -168,7 +170,7 @@ STARTER_ITEMS = [
         "weight": 2.0,
         "equipment_slot": EquipmentSlot.CHEST,
         "required_level": 1,
-        "stats": {"armor": 5, "health": 10},
+        "stats": ItemStats(armor=5, health_bonus=10).model_dump(),
         "max_durability": 80
     },
     
@@ -182,7 +184,7 @@ STARTER_ITEMS = [
         "weight": 0.5,
         "max_stack_size": 10,
         "is_consumable": True,
-        "effects": {"heal": 50, "duration": 0}
+        "effects": ItemEffects(heal=50).model_dump()
     },
     
     # Materials
@@ -194,7 +196,7 @@ STARTER_ITEMS = [
         "base_value": 5,
         "weight": 1.0,
         "max_stack_size": 50,
-        "attributes": {"smithing_material": True}
+        "attributes": ItemAttributes(crafting_material=True).model_dump()
     },
     
     # Tools
@@ -206,7 +208,7 @@ STARTER_ITEMS = [
         "base_value": 25,
         "weight": 4.0,
         "required_skills": {"Mining": 1},
-        "stats": {"mining_speed": 1.2},
+        "stats": ItemStats(mining_speed=1.2).model_dump(),
         "max_durability": 200
     }
 ]

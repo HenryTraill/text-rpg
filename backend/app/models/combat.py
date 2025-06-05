@@ -1,4 +1,5 @@
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import Column, JSON
 from typing import Optional, List
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
@@ -12,7 +13,7 @@ class CombatSession(SQLModel, table=True):
     status: str = Field(default="active")  # active, completed, cancelled
     turn_number: int = Field(default=1)
     current_turn_character_id: Optional[UUID] = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now())
     ended_at: Optional[datetime] = Field(default=None)
     
     # Relationships
@@ -45,9 +46,9 @@ class CombatAction(SQLModel, table=True):
     action_type: str = Field(default="attack")  # attack, defend, skill, item
     target_id: Optional[UUID] = Field(default=None)
     turn_number: int
-    action_data: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
-    result_data: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    action_data: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
+    result_data: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=lambda: datetime.now())
     
     # Relationships
     combat_session: CombatSession = Relationship(back_populates="actions")
@@ -62,5 +63,5 @@ class CombatResult(SQLModel, table=True):
     winner_id: Optional[UUID] = Field(foreign_key="characters.id")
     experience_awarded: int = Field(default=0)
     gold_awarded: int = Field(default=0)
-    items_awarded: Optional[dict] = Field(default_factory=dict, sa_column_kwargs={"type_": "JSON"})
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    items_awarded: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=lambda: datetime.now())
