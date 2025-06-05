@@ -24,9 +24,11 @@ from app.models.schemas import (
     SkillBonuses, SkillAbilities,
     ItemStats, ItemEffects, ItemAttributes
 )
+import os
 
 # Override settings for testing
-test_database_url = "sqlite+aiosqlite:///./test.db"
+# Use DATABASE_URL from environment if available (GitHub Actions), otherwise use SQLite
+test_database_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
 
 fake = Faker()
 

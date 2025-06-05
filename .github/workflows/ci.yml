@@ -1,7 +1,6 @@
 name: CI
 
 on:
-  push:
   pull_request:
 
 jobs:
@@ -51,7 +50,7 @@ jobs:
 
     - name: Set up test environment variables
       run: |
-        echo "DATABASE_URL=postgresql://test_user:test_password@localhost:5432/test_db" >> $GITHUB_ENV
+        echo "DATABASE_URL=postgresql+asyncpg://test_user:test_password@localhost:5432/test_db" >> $GITHUB_ENV
         echo "REDIS_URL=redis://localhost:6379" >> $GITHUB_ENV
         echo "TESTING=true" >> $GITHUB_ENV
 
