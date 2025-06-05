@@ -1,0 +1,99 @@
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel
+from typing import AsyncGenerator
+import logging
+
+from .config import settings
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+# Create async engine with connection pooling
+engine = create_async_engine(
+    settings.database_url,
+    pool_size=settings.database_pool_size,
+    max_overflow=settings.database_max_overflow,
+    pool_timeout=settings.database_pool_timeout,
+    pool_recycle=settings.database_pool_recycle,
+    echo=settings.debug,  # Log SQL queries in debug mode
+    future=True,
+)
+
+# Create session factory
+AsyncSessionLocal = sessionmaker(
+    engine, 
+    class_=AsyncSession, 
+    expire_on_commit=False
+)
+
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Dependency for getting async database session.
+    
+    Yields:
+        AsyncSession: Database session
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        except Exception as e:
+            logger.error(f"Database session error: {e}")
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+async def create_db_and_tables():
+    """
+    Create database tables from SQLModel metadata.
+    This should be called during application startup.
+    """
+    async with engine.begin() as conn:
+        # Import all models to ensure they're registered with SQLModel.metadata
+        # This will be updated when models are created
+        try:
+            from app.models.user import User
+            from app.models.character import Character
+            from app.models.skill import Skill, CharacterSkill
+            from app.models.inventory import Item, InventorySlot
+            from app.models.world import Zone, Location
+            from app.models.social import Guild, GuildMember, Party, Friendship
+            from app.models.chat import ChatChannel, Message
+            from app.models.combat import CombatSession, CombatAction
+            from app.models.economy import Trade, Auction, NPCMerchant
+        except ImportError:
+            # Models not created yet
+            pass
+        
+        # Create all tables
+        await conn.run_sync(SQLModel.metadata.create_all)
+        logger.info("Database tables created successfully")
+
+
+async def close_db_connection():
+    """
+    Close database connection pool.
+    This should be called during application shutdown.
+    """
+    await engine.dispose()
+    logger.info("Database connection pool closed")
+
+
+# Health check function
+async def check_database_health() -> bool:
+    """
+    Check if database connection is healthy.
+    
+    Returns:
+        bool: True if database is accessible, False otherwise
+    """
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute("SELECT 1")
+            return True
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        return False
