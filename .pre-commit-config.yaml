@@ -98,4 +98,4 @@ exclude: |
       .*/\.pytest_cache/.*|
       htmlcov/.*|
       \.env.*
-  )$
+  )$ 

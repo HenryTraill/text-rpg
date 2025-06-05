@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:15
+    image: postgres:17
     container_name: text-rpg-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}

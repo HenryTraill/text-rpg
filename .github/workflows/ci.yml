@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  push:
   pull_request:
 
 jobs:
@@ -36,7 +37,7 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
@@ -57,21 +58,18 @@ jobs:
     - name: Run tests with coverage
       run: |
         cd backend
-        python -m pytest
+        pytest --cov --cov-report=html:htmlcov
 
-    # - name: Upload coverage reports to Codecov
-    #   if: success()
-    #   uses: codecov/codecov-action@v3
-    #   with:
-    #     file: ./backend/coverage.xml
-    #     directory: ./backend
-    #     flags: unittests
-    #     name: codecov-umbrella
-    #     fail_ci_if_error: false
+    - name: Check coverage report directory
+      run: |
+        if [ ! -d backend/htmlcov ]; then
+          echo "Coverage report directory does not exist"
+          exit 1
+        fi
 
     - name: Upload coverage to GitHub
       if: success()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: coverage-report
-        path: backend/htmlcov/ 
+        path: backend/htmlcov/
