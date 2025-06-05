@@ -144,7 +144,7 @@ The pre-commit hooks will automatically:
 Key environment variables (see `backend/env.example`):
 
 | Variable | Description | Default |
-|----------|-------------|---------|
+|----------|-------------|----------|
 | `DATABASE_URL` | PostgreSQL connection string | postgres://postgres:password@localhost:5432/text_rpg_db |
 | `REDIS_URL` | Redis connection string | redis://localhost:6379 |
 | `SECRET_KEY` | JWT secret key | your-secret-key-change-this-in-production |
@@ -207,4 +207,4 @@ docker-compose run --rm migrations
 5. Run tests
 6. Submit a pull request
 
-The CI/CD pipeline will automatically run tests and code quality checks on all pull requests. 
+The CI/CD pipeline will automatically run tests and code quality checks on all pull requests.
