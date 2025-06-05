@@ -29,7 +29,8 @@ class Settings(BaseSettings):
     # Authentication Settings
     secret_key: str = "your-secret-key-change-this-in-production"
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+    access_token_expire_minutes: int = 15  # 15 minutes as per requirements
+    refresh_token_expire_days: int = 7     # 7 days as per requirements
     
     # Security Settings
     password_min_length: int = 8
