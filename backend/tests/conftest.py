@@ -86,6 +86,244 @@ def mock_db_session():
 
 
 @pytest.fixture
+def db_session():
+    """Create a database session fixture with realistic mock behavior."""
+    from sqlalchemy.exc import IntegrityError
+    from app.core.database import get_session
+    import uuid
+    
+    # Storage for mocked data - simulates database persistence
+    mock_storage = {
+        'users': [],
+        'skills': [],
+        'zones': [],
+        'locations': [],
+        'items': [],
+        'characters': [],
+        'chat_channels': [],
+        'npc_merchants': [],
+        'user_sessions': [],
+        'trades': [],
+        'guilds': [],
+        'combat_sessions': [],
+        'inventory_slots': [],
+        'character_skills': []
+    }
+    
+    # Track objects pending commit for constraint checking
+    pending_objects = []
+    
+    def mock_add(obj):
+        """Mock add that queues objects for commit."""
+        obj_type = type(obj).__name__.lower()
+        
+        # Generate ID if not present and model has an id field
+        if hasattr(obj, 'id') and obj.id is None:
+            obj.id = uuid.uuid4()
+        
+        # Add to pending list for constraint checking during commit
+        pending_objects.append(obj)
+    
+    async def mock_commit():
+        """Mock commit that validates constraints and persists objects."""
+        for obj in pending_objects:
+            obj_type = type(obj).__name__.lower()
+            
+            # Check for unique constraints before committing
+            if obj_type == 'user':
+                # Check username/email uniqueness
+                for existing in mock_storage.get('users', []):
+                    if (hasattr(existing, 'username') and hasattr(obj, 'username') and 
+                        existing.username == obj.username):
+                        raise IntegrityError("Duplicate username", None, None)
+                    if (hasattr(existing, 'email') and hasattr(obj, 'email') and 
+                        existing.email == obj.email):
+                        raise IntegrityError("Duplicate email", None, None)
+            elif obj_type == 'skill':
+                # Check skill name uniqueness
+                for existing in mock_storage.get('skills', []):
+                    if (hasattr(existing, 'name') and hasattr(obj, 'name') and 
+                        existing.name == obj.name):
+                        raise IntegrityError("Duplicate skill name", None, None)
+            elif obj_type == 'character':
+                # Check character name uniqueness
+                for existing in mock_storage.get('characters', []):
+                    if (hasattr(existing, 'name') and hasattr(obj, 'name') and 
+                        existing.name == obj.name):
+                        raise IntegrityError("Duplicate character name", None, None)
+            elif obj_type == 'zone':
+                # Check zone name uniqueness
+                for existing in mock_storage.get('zones', []):
+                    if (hasattr(existing, 'name') and hasattr(obj, 'name') and 
+                        existing.name == obj.name):
+                        raise IntegrityError("Duplicate zone name", None, None)
+            
+            # Store the object with correct table name mapping
+            table_mapping = {
+                'chatchannel': 'chat_channels',
+                'npcmerchant': 'npc_merchants',
+                'characterskill': 'character_skills',
+                'usersession': 'user_sessions',
+                'inventoryslot': 'inventory_slots',
+                'combatsession': 'combat_sessions'
+            }
+            
+            table_name = table_mapping.get(obj_type, f"{obj_type}s")
+            if table_name not in mock_storage:
+                mock_storage[table_name] = []
+            mock_storage[table_name].append(obj)
+        
+        # Clear pending objects after successful commit
+        pending_objects.clear()
+    
+    def mock_add_all(objects):
+        """Mock add_all that adds multiple objects."""
+        for obj in objects:
+            mock_add(obj)
+    
+    async def mock_execute(statement):
+        """Mock execute that simulates SELECT queries with sophisticated WHERE clause parsing."""
+        import re
+        
+        # Try to get compiled SQL with actual parameter values
+        statement_str = str(statement).lower()
+        compiled_sql = statement_str
+        
+        try:
+            # Attempt to get compiled SQL with bound parameters
+            if hasattr(statement, 'compile'):
+                compiled = statement.compile(compile_kwargs={"literal_binds": True})
+                compiled_sql = str(compiled).lower()
+        except:
+            # Fallback to original parsing if compilation fails
+            pass
+        
+        mock_result = Mock()
+        
+        # Simulate different query patterns
+        if 'select' in statement_str:
+            results = []
+            
+            # Determine the primary table
+            table_name = None
+            if 'from skills' in statement_str or 'skills.' in statement_str:
+                table_name = 'skills'
+                results = mock_storage.get('skills', [])
+            elif 'from items' in statement_str or 'items.' in statement_str:
+                table_name = 'items'
+                results = mock_storage.get('items', [])
+            elif 'from users' in statement_str or 'users.' in statement_str:
+                table_name = 'users'
+                results = mock_storage.get('users', [])
+            elif 'from characters' in statement_str or 'characters.' in statement_str:
+                table_name = 'characters'
+                results = mock_storage.get('characters', [])
+            elif 'from zones' in statement_str or 'zones.' in statement_str:
+                table_name = 'zones'
+                results = mock_storage.get('zones', [])
+            elif 'from locations' in statement_str or 'locations.' in statement_str:
+                table_name = 'locations'
+                results = mock_storage.get('locations', [])
+            elif 'from chat_channels' in statement_str or 'chat_channels.' in statement_str:
+                table_name = 'chat_channels'
+                results = mock_storage.get('chat_channels', [])
+            elif 'from npc_merchants' in statement_str or 'npc_merchants.' in statement_str:
+                table_name = 'npc_merchants'
+                results = mock_storage.get('npc_merchants', [])
+            
+            # Apply sophisticated WHERE clause filtering
+            if table_name and 'where' in statement_str:
+                results = apply_where_filters(results, compiled_sql, table_name)
+                
+            # Handle non-WHERE specific patterns for backwards compatibility
+            elif table_name == 'locations' and 'general store' in statement_str:
+                results = [l for l in results if hasattr(l, 'name') and 'general store' in l.name.lower()]
+                
+            # Handle JOIN queries
+            elif any(table in statement_str for table in ['join', 'users', 'characters']):
+                if 'characters' in statement_str:
+                    results = mock_storage.get('characters', [])
+                elif 'users' in statement_str:
+                    results = mock_storage.get('users', [])
+            
+            # Setup mock result methods
+            mock_result.scalars.return_value.all.return_value = results
+            mock_result.scalars.return_value.first.return_value = results[0] if results else None
+            mock_result.scalar_one_or_none.return_value = results[0] if results else None
+            mock_result.scalar_one.return_value = results[0] if results else None
+            
+        else:
+            # For non-SELECT statements
+            mock_result.scalars.return_value.all.return_value = []
+            mock_result.scalars.return_value.first.return_value = None
+            mock_result.scalar_one_or_none.return_value = None
+        
+        return mock_result
+    
+    def apply_where_filters(results, sql_str, table_name):
+        """Apply WHERE clause filters to mock data."""
+        import re
+        
+        # Extract WHERE clause
+        where_match = re.search(r'where\s+(.+?)(?:\s+order\s+by|\s+group\s+by|\s+limit|\s*$)', sql_str, re.IGNORECASE | re.DOTALL)
+        if not where_match:
+            return results
+            
+        where_clause = where_match.group(1).strip()
+        
+
+        
+        # Handle skills table filters
+        if table_name == 'skills':
+            # Look for category filter: skills.category = 'combat' or similar
+            category_match = re.search(r"skills\.category\s*=\s*['\"]?(\w+)['\"]?", where_clause)
+            if category_match:
+                category_value = category_match.group(1).lower()
+                # Use .value to get the enum's string value, not its representation
+                results = [s for s in results if hasattr(s, 'category') and 
+                          (s.category.value if hasattr(s.category, 'value') else str(s.category)).lower() == category_value]
+            
+            # Look for name exact match: skills.name = 'Swordsmanship' (case-insensitive)
+            name_match = re.search(r"skills\.name\s*=\s*['\"]([^'\"]+)['\"]", where_clause)
+            if name_match:
+                name_value = name_match.group(1)
+                results = [s for s in results if hasattr(s, 'name') and s.name.lower() == name_value.lower()]
+            
+            # Look for LIKE pattern: skills.name LIKE '%uuid%'  
+            like_match = re.search(r"skills\.name\s+like\s+['\"]%([a-f0-9\-]{6,})[a-f0-9\-]*%['\"]", where_clause)
+            if like_match:
+                uuid_pattern = like_match.group(1)
+                results = [s for s in results if hasattr(s, 'name') and uuid_pattern in s.name.lower()]
+                
+        # Handle items table filters
+        elif table_name == 'items':
+            # Look for item_type filter: items.item_type = 'weapon' or similar
+            type_match = re.search(r"items\.item_type\s*=\s*['\"]?(\w+)['\"]?", where_clause)
+            if type_match:
+                type_value = type_match.group(1).lower()
+                results = [i for i in results if hasattr(i, 'item_type') and str(i.item_type).lower() == type_value]
+            
+            # Look for LIKE pattern: items.name LIKE '%uuid%'
+            like_match = re.search(r"items\.name\s+like\s+['\"]%([a-f0-9\-]{6,})[a-f0-9\-]*%['\"]", where_clause)
+            if like_match:
+                uuid_pattern = like_match.group(1)
+                results = [i for i in results if hasattr(i, 'name') and uuid_pattern in i.name.lower()]
+        
+        return results
+    
+    # Create mock session with realistic behavior
+    mock_session = AsyncMock()
+    mock_session.add = Mock(side_effect=mock_add)
+    mock_session.add_all = Mock(side_effect=mock_add_all)
+    mock_session.commit = AsyncMock(side_effect=mock_commit)
+    mock_session.refresh = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=mock_execute)
+    mock_session.rollback = AsyncMock()
+    
+    return mock_session
+
+
+@pytest.fixture
 def mock_redis_client():
     """Create a mock Redis client."""
     client = Mock()
@@ -373,3 +611,111 @@ class TestDataFactory:
 def test_data():
     """Provide test data factory."""
     return TestDataFactory
+
+
+# Model factories for testing
+def UserFactory(**overrides):
+    """Create test user data."""
+    from app.models.user import UserRole, UserStatus
+    data = {
+        "username": f"testuser_{uuid4().hex[:8]}",
+        "email": f"test_{uuid4().hex[:8]}@example.com",
+        "hashed_password": auth_utils.get_password_hash("TestPassword123!"),
+        "role": UserRole.PLAYER,
+        "status": UserStatus.ACTIVE,
+        "is_verified": True,
+        "max_characters": 5,
+        "chat_settings": {"global_enabled": True, "private_enabled": True},
+        "privacy_settings": {"show_online_status": True, "allow_friend_requests": True},
+    }
+    data.update(overrides)
+    return data
+
+
+def SkillFactory(**overrides):
+    """Create test skill data."""
+    from app.models.skill import SkillCategory
+    data = {
+        "name": f"Test Skill {uuid4().hex[:8]}",
+        "description": "A test skill for testing purposes",
+        "category": SkillCategory.COMBAT.value,
+        "max_level": 100,
+        "base_experience": 100,
+        "experience_multiplier": 1.5,
+        "stat_bonuses": {"strength": 1, "agility": 1},
+        "abilities": {"basic_attack": {"level": 1, "damage": 10}},
+        "prerequisite_skills": {},
+        "is_active": True,
+    }
+    data.update(overrides)
+    return data
+
+
+def ZoneFactory(**overrides):
+    """Create test zone data."""
+    data = {
+        "name": f"Test Zone {uuid4().hex[:8]}",
+        "description": "A test zone for testing purposes",
+        "min_x": 0.0,
+        "max_x": 1000.0,
+        "min_y": 0.0,
+        "max_y": 1000.0,
+        "level_requirement": 1,
+        "is_safe": True,
+        "is_active": True,
+        "spawn_rates": {"monster": 0.1, "resource": 0.2},
+        "weather_effects": {"clear": 0.7, "rain": 0.3},
+        "special_properties": {},
+    }
+    data.update(overrides)
+    return data
+
+
+def ItemFactory(**overrides):
+    """Create test item data."""
+    from app.models.inventory import ItemType, ItemRarity
+    data = {
+        "name": f"Test Item {uuid4().hex[:8]}",
+        "description": "A test item for testing purposes",
+        "item_type": ItemType.WEAPON.value,
+        "rarity": ItemRarity.COMMON.value,
+        "base_value": 100,
+        "weight": 1.0,
+        "max_stack": 1,
+        "is_tradeable": True,
+        "is_consumable": False,
+        "stats": {"damage": 10, "accuracy": 5},
+        "effects": {},
+        "attributes": {},
+    }
+    data.update(overrides)
+    return data
+
+
+def CharacterFactory(**overrides):
+    """Create test character data."""
+    data = {
+        "name": f"TestChar_{uuid4().hex[:8]}",
+        "class_type": "warrior",
+        "level": 1,
+        "experience": 0,
+        "health": 100,
+        "max_health": 100,
+        "mana": 50,
+        "max_mana": 50,
+        "strength": 10,
+        "agility": 10,
+        "intelligence": 10,
+        "vitality": 10,
+        "luck": 10,
+        "gold": 100,
+        "x_coordinate": 500.0,
+        "y_coordinate": 500.0,
+        "is_online": False,
+        "is_active": True,
+        "last_login": None,
+        "stats": {},
+        "preferences": {},
+    }
+    data.update(overrides)
+    return data
