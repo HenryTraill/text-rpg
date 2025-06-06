@@ -121,7 +121,7 @@ This guide provides a complete roadmap for implementing the medieval text MMO RP
 - **Build Tool**: Vite or Create React App
 
 ### Infrastructure
-- **Containerization**: Docker + Docker Compose
+- **Process Management**: systemd/supervisor
 - **Orchestration**: Kubernetes (production)
 - **Monitoring**: APM solution (DataDog, New Relic)
 - **CI/CD**: GitHub Actions or GitLab CI
@@ -180,7 +180,7 @@ This guide provides a complete roadmap for implementing the medieval text MMO RP
 ### Immediate Next Steps
 1. **Set up repository** with proper structure and README
 2. **Create GitHub issues** using the provided templates
-3. **Set up development environment** with Docker
+3. **Set up development environment** with local services
 4. **Configure CI/CD pipeline** for automated testing
 5. **Begin Epic 1** with infrastructure setup
 
