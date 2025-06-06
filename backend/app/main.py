@@ -298,6 +298,7 @@ async def api_info():
     }
 
 
+<<<<<<< Updated upstream
 # Include API routers with versioning structure
 app.include_router(auth_router, prefix="/api/v1", tags=["authentication"])
 
@@ -310,6 +311,38 @@ app.include_router(auth_router, prefix="/api/v1", tags=["authentication"])
 # app.include_router(social_router, prefix="/api/v1/social", tags=["social"])
 # app.include_router(chat_router, prefix="/api/v1/chat", tags=["chat"])
 # app.include_router(economy_router, prefix="/api/v1/economy", tags=["economy"])
+=======
+# Include WebSocket routes
+try:
+    from .websocket.integration import setup_websocket_routes, get_websocket_health, get_websocket_metrics
+    setup_websocket_routes(app)
+    
+    # Add WebSocket health endpoints
+    @app.get("/api/v1/websocket/health")
+    async def websocket_health():
+        """Get WebSocket system health status."""
+        return get_websocket_health()
+    
+    @app.get("/api/v1/websocket/metrics")
+    async def websocket_metrics():
+        """Get WebSocket system metrics."""
+        return get_websocket_metrics()
+        
+    logger.info("WebSocket routes configured successfully")
+except ImportError as e:
+    logger.warning(f"WebSocket module not available: {e}")
+
+# Include API routers (will be added in future issues)
+# app.include_router(auth_router, prefix="/api/auth", tags=["authentication"])
+# app.include_router(character_router, prefix="/api/characters", tags=["characters"])
+# app.include_router(skill_router, prefix="/api/skills", tags=["skills"])
+# app.include_router(inventory_router, prefix="/api/inventory", tags=["inventory"])
+# app.include_router(world_router, prefix="/api/world", tags=["world"])
+# app.include_router(combat_router, prefix="/api/combat", tags=["combat"])
+# app.include_router(social_router, prefix="/api/social", tags=["social"])
+# app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
+# app.include_router(economy_router, prefix="/api/economy", tags=["economy"])
+>>>>>>> Stashed changes
 
 
 if __name__ == "__main__":
