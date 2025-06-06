@@ -9,16 +9,25 @@ from .config import settings
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Create async engine with connection pooling
-engine = create_async_engine(
-    settings.database_url,
-    pool_size=settings.database_pool_size,
-    max_overflow=settings.database_max_overflow,
-    pool_timeout=settings.database_pool_timeout,
-    pool_recycle=settings.database_pool_recycle,
-    echo=settings.debug,  # Log SQL queries in debug mode
-    future=True,
-)
+# Create async engine with appropriate configuration based on database type
+if settings.database_url.startswith(("sqlite", "sqlite+aiosqlite")):
+    # SQLite configuration - no connection pooling
+    engine = create_async_engine(
+        settings.database_url,
+        echo=settings.debug,  # Log SQL queries in debug mode
+        future=True,
+    )
+else:
+    # PostgreSQL configuration - with connection pooling
+    engine = create_async_engine(
+        settings.database_url,
+        pool_size=settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+        pool_timeout=settings.database_pool_timeout,
+        pool_recycle=settings.database_pool_recycle,
+        echo=settings.debug,  # Log SQL queries in debug mode
+        future=True,
+    )
 
 # Create session factory
 AsyncSessionLocal = sessionmaker(
