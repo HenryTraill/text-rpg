@@ -28,8 +28,8 @@ Set up the foundational project structure and development environment for the me
 - [ ] Set up FastAPI project with SQLModel integration
 - [ ] Configure PostgreSQL database connection
 - [ ] Set up Redis for caching and pub/sub
-- [ ] Create Docker containers for all services
-- [ ] Set up development environment with docker-compose
+- [ ] Set up local development services (PostgreSQL, Redis)
+- [ ] Create development environment setup guide
 - [ ] Configure environment variables and secrets management
 - [ ] Set up pre-commit hooks for code quality
 
@@ -37,7 +37,7 @@ Set up the foundational project structure and development environment for the me
 - FastAPI with SQLModel ORM
 - PostgreSQL 14+ database
 - Redis 6+ for caching/pub-sub
-- Docker and docker-compose setup
+- Local development environment setup
 - Python 3.11+ with type hints
 
 **Reference:** GAME_DESIGN_DOCUMENT.md - Technical Stack

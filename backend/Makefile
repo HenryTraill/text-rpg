@@ -40,68 +40,56 @@ help:
 
 # Environment Setup
 install:
-	cd backend && pip install -r requirements.txt
+	pip install -r requirements.txt
 
 install-dev:
-	cd backend && pip install -r requirements.txt -r requirements-test.txt
+	pip install -r requirements.txt -r requirements-test.txt
 
 # Development Server
 run:
-	cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+	python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 run-dev:
-	cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+	python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Testing
 test:
-	cd backend && python -m pytest
+	python -m pytest
 
 test-cov:
-	cd backend && python -m pytest --cov --cov-report=html:htmlcov --cov-report=term
+	python -m pytest --cov --cov-report=html:htmlcov --cov-report=term
 
 test-watch:
-	cd backend && python -m pytest --watch
+	python -m pytest --watch
 
 # Code Quality
 lint:
-	cd backend && python -m flake8 app tests
-	cd backend && python -m mypy app
+	python -m flake8 app tests
+	python -m mypy app
 
 format:
-	cd backend && python -m black app tests
-	cd backend && python -m isort app tests
+	python -m black app tests
+	python -m isort app tests
 
 format-check:
-	cd backend && python -m black --check app tests
-	cd backend && python -m isort --check-only app tests
+	python -m black --check app tests
+	python -m isort --check-only app tests
 
 # Database Operations
 db-upgrade:
-	cd backend && alembic upgrade head
+	alembic upgrade head
 
 db-downgrade:
-	cd backend && alembic downgrade -1
+	alembic downgrade -1
 
 db-revision:
 	@read -p "Enter migration message: " msg; \
-	cd backend && alembic revision --autogenerate -m "$$msg"
+	alembic revision --autogenerate -m "$$msg"
 
 db-reset:
-	cd backend && alembic downgrade base
-	cd backend && alembic upgrade head
+	alembic downgrade base
+	&& alembic upgrade head
 
-# Docker Operations
-docker-build:
-	docker-compose build
-
-docker-up:
-	docker-compose up -d
-
-docker-down:
-	docker-compose down
-
-docker-logs:
-	docker-compose logs -f
 
 # Cleanup
 clean: clean-pyc clean-test

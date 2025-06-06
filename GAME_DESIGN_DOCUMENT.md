@@ -6,9 +6,9 @@
 A scalable medieval fantasy MMO with turn-based combat, classless progression, and extensive social features supporting thousands of concurrent players.
 
 ### Technical Stack
-- **Backend**: FastAPI, SQLModel, PostgreSQL, Redis, WebSocket, Celery, Docker
+- **Backend**: FastAPI, SQLModel, PostgreSQL, Redis, WebSocket, Celery
 - **Frontend**: React, WebSocket Client, Redux/Zustand
-- **Infrastructure**: Nginx Load Balancer, Docker Containers, Daily Backups
+- **Infrastructure**: Nginx Load Balancer, Process Manager, Daily Backups
 
 ## Core Game Features
 
