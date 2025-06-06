@@ -351,3 +351,17 @@ Data Layer (PostgreSQL + Daily Backups)
 - **Revenue Sustainability**: Multiple monetization strategies consideration
 
 This document serves as the complete technical and design specification for the medieval text MMO RPG project, providing all necessary information for development planning and implementation. 
+
+# Test invalid JSON handling
+def test_invalid_json_error():
+    websocket.send_text("invalid json")
+    error = json.loads(websocket.receive_text())
+    assert error["type"] == "error"
+
+# Test connection cleanup
+def test_connection_cleanup():
+    # Test automatic disconnection cleanup
+    
+# Test multiple concurrent connections
+def test_concurrent_connections():
+    # Test multiple clients on same channel 
