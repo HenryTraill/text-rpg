@@ -1,14 +1,16 @@
 # Development Setup Guide
 
-This guide will help you set up the development environment for the Text RPG project.
+This guide will help you set up the local development environment for the Text RPG project.
 
 ## Prerequisites
 
-- Docker and Docker Compose
 - Python 3.11+
+- PostgreSQL 15+
+- Redis 7+
 - Git
+- Node.js 18+ (for frontend development)
 
-## Quick Start with Docker
+## Quick Start
 
 1. **Clone the repository**
    ```bash
@@ -16,99 +18,115 @@ This guide will help you set up the development environment for the Text RPG pro
    cd text-rpg
    ```
 
-2. **Copy environment configuration**
+2. **Set up PostgreSQL Database**
    ```bash
-   cp backend/env.example backend/.env
-   ```
-   Edit `backend/.env` with your preferred settings.
-
-3. **Start all services**
-   ```bash
-   docker-compose up -d
-   ```
-
-4. **Run database migrations**
-   ```bash
-   docker-compose run --rm migrations
+   # Create database
+   createdb text_rpg_db
+   
+   # Create user (optional)
+   psql -c "CREATE USER text_rpg_user WITH PASSWORD 'your_password';"
+   psql -c "GRANT ALL PRIVILEGES ON DATABASE text_rpg_db TO text_rpg_user;"
    ```
 
-5. **Access the application**
+3. **Set up Redis**
+   ```bash
+   # Start Redis server
+   redis-server
+   ```
+
+4. **Backend Setup**
+   ```bash
+   cd backend
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   pip install -r requirements-dev.txt
+   ```
+
+5. **Copy environment configuration**
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` with your local database and Redis connection strings.
+
+6. **Run database migrations**
+   ```bash
+   alembic upgrade head
+   ```
+
+7. **Start the backend server**
+   ```bash
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+8. **Frontend Setup (in new terminal)**
+   ```bash
+   cd frontend
+   npm install
+   npm start
+   ```
+
+9. **Access the application**
    - API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
+   - Frontend: http://localhost:3000
 
 ## Development Workflow
 
 ### Running Services
 
 ```bash
-# Start all services in background
-docker-compose up -d
+# Start PostgreSQL (varies by OS)
+# macOS with Homebrew:
+brew services start postgresql
 
-# Start only specific services
-docker-compose up -d postgres redis
+# Ubuntu/Debian:
+sudo systemctl start postgresql
 
-# View logs
-docker-compose logs -f backend
+# Start Redis
+redis-server
 
-# Stop all services
-docker-compose down
+# Start backend (in backend directory)
+source venv/bin/activate
+uvicorn app.main:app --reload
+
+# Start frontend (in frontend directory)
+npm start
 ```
 
 ### Database Management
 
 ```bash
 # Run migrations
-docker-compose run --rm migrations
+alembic upgrade head
 
 # Create new migration
-docker-compose run --rm backend alembic revision --autogenerate -m "description"
+alembic revision --autogenerate -m "description"
 
 # Reset database (careful!)
-docker-compose down -v
-docker-compose up -d postgres
-docker-compose run --rm migrations
+dropdb text_rpg_db
+createdb text_rpg_db
+alembic upgrade head
 ```
 
 ### Testing
 
 ```bash
-# Run tests in container
-docker-compose run --rm backend pytest
+# Backend tests
+cd backend
+source venv/bin/activate
+pytest
 
 # Run tests with coverage
-docker-compose run --rm backend pytest --cov=app --cov-report=html
+pytest --cov=app --cov-report=html
 
 # Run specific test file
-docker-compose run --rm backend pytest tests/test_models.py
+pytest tests/test_models.py
+
+# Frontend tests
+cd frontend
+npm test
 ```
-
-## Local Development (without Docker)
-
-If you prefer local development:
-
-1. **Set up virtual environment**
-   ```bash
-   cd backend
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   pip install -r requirements-test.txt
-   ```
-
-3. **Start local services**
-   ```bash
-   # You'll need PostgreSQL and Redis running locally
-   # Update backend/.env with local connection strings
-   ```
-
-4. **Run the application**
-   ```bash
-   uvicorn app.main:app --reload
-   ```
 
 ## Code Quality Setup
 
@@ -137,15 +155,14 @@ The pre-commit hooks will automatically:
 - Lint with flake8
 - Type check with mypy
 - Security scan with bandit
-- Lint Dockerfiles with hadolint
 
 ## Environment Variables
 
-Key environment variables (see `backend/env.example`):
+Key environment variables (see `backend/.env.example`):
 
 | Variable | Description | Default |
 |----------|-------------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | postgres://postgres:password@localhost:5432/text_rpg_db |
+| `DATABASE_URL` | PostgreSQL connection string | postgresql://localhost:5432/text_rpg_db |
 | `REDIS_URL` | Redis connection string | redis://localhost:6379 |
 | `SECRET_KEY` | JWT secret key | your-secret-key-change-this-in-production |
 | `DEBUG` | Enable debug mode | true |
@@ -156,6 +173,7 @@ Key environment variables (see `backend/env.example`):
 | Service | Port | Description |
 |---------|------|-------------|
 | Backend API | 8000 | FastAPI application |
+| Frontend | 3000 | React development server |
 | PostgreSQL | 5432 | Database |
 | Redis | 6379 | Cache and pub/sub |
 
@@ -167,35 +185,106 @@ Key environment variables (see `backend/env.example`):
    ```bash
    # Check what's using the port
    lsof -i :8000
-   # Kill the process or change ports in docker-compose.yml
+   # Kill the process or change ports
    ```
 
 2. **Database connection issues**
    ```bash
    # Check if PostgreSQL is running
-   docker-compose ps postgres
-   # Check logs
-   docker-compose logs postgres
+   pg_isready -h localhost -p 5432
+   # Check PostgreSQL status
+   brew services list | grep postgresql  # macOS
+   sudo systemctl status postgresql      # Linux
    ```
 
-3. **Permission issues on Linux**
+3. **Redis connection issues**
    ```bash
-   # Fix file permissions
-   sudo chown -R $USER:$USER .
+   # Check if Redis is running
+   redis-cli ping
+   # Should return PONG
+   ```
+
+4. **Virtual environment issues**
+   ```bash
+   # Recreate virtual environment
+   rm -rf venv
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
    ```
 
 ### Reset Everything
 
 ```bash
-# Stop and remove all containers, networks, and volumes
-docker-compose down -v --remove-orphans
+# Stop all services
+# Backend: Ctrl+C in terminal
+# Frontend: Ctrl+C in terminal
+# PostgreSQL: brew services stop postgresql (macOS)
+# Redis: Ctrl+C if running in foreground
 
-# Remove images (optional)
-docker-compose down --rmi all
+# Reset database
+dropdb text_rpg_db
+createdb text_rpg_db
 
-# Start fresh
-docker-compose up -d
-docker-compose run --rm migrations
+# Restart services and run migrations
+alembic upgrade head
+```
+
+## Installation by Operating System
+
+### macOS Setup
+
+```bash
+# Install Homebrew if not installed
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install dependencies
+brew install python@3.11 postgresql redis node
+
+# Start services
+brew services start postgresql
+brew services start redis
+```
+
+### Ubuntu/Debian Setup
+
+```bash
+# Update package list
+sudo apt update
+
+# Install Python 3.11
+sudo apt install python3.11 python3.11-venv python3.11-dev
+
+# Install PostgreSQL
+sudo apt install postgresql postgresql-contrib
+
+# Install Redis
+sudo apt install redis-server
+
+# Install Node.js
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install nodejs
+
+# Start services
+sudo systemctl start postgresql
+sudo systemctl start redis-server
+sudo systemctl enable postgresql
+sudo systemctl enable redis-server
+```
+
+### Windows Setup
+
+```bash
+# Install Python 3.11 from python.org
+# Install PostgreSQL from postgresql.org
+# Install Redis from GitHub releases or use WSL
+# Install Node.js from nodejs.org
+
+# Set up PostgreSQL (in Command Prompt as Administrator)
+createdb text_rpg_db
+
+# Start Redis (if using Windows port)
+redis-server
 ```
 
 ## Contributing
@@ -204,7 +293,18 @@ docker-compose run --rm migrations
 2. Create a feature branch
 3. Set up pre-commit hooks
 4. Make your changes
-5. Run tests
+5. Run tests locally
 6. Submit a pull request
 
-The CI/CD pipeline will automatically run tests and code quality checks on all pull requests.
+## Production Deployment
+
+For production deployment:
+
+1. Set up production PostgreSQL and Redis instances
+2. Configure environment variables for production
+3. Use a process manager like systemd or supervisor
+4. Set up a reverse proxy (nginx)
+5. Configure SSL certificates
+6. Set up monitoring and logging
+
+The application is designed to be easily deployable to cloud platforms or VPS instances without containerization.

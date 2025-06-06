@@ -38,7 +38,6 @@ A comprehensive medieval fantasy text-based massively multiplayer online role-pl
 - **Redis**: Caching and session management
 - **WebSocket**: Real-time communication
 - **Celery**: Background task processing
-- **Docker**: Containerized deployment
 
 ### Frontend
 - **React**: Modern UI framework
@@ -47,22 +46,22 @@ A comprehensive medieval fantasy text-based massively multiplayer online role-pl
 - **WebSocket Client**: Real-time game updates
 
 ### Infrastructure
-- **Docker Compose**: Development environment orchestration
+- **Process Manager**: Service orchestration with systemd/supervisor
 - **Nginx**: Reverse proxy and load balancing
 - **Monitoring**: Comprehensive logging and metrics
 - **Authentication**: JWT-based security with role management
 
 ## 📋 Prerequisites
 
-- **Docker** and **Docker Compose**
-- **Python 3.11+** (for local development)
-- **Node.js 18+** and **npm/yarn** (for frontend development)
-- **PostgreSQL 15+** (if running without Docker)
-- **Redis 7+** (if running without Docker)
+- **Python 3.11+**
+- **PostgreSQL 15+**
+- **Redis 7+**
+- **Node.js 18+** and **npm/yarn**
+- **Git**
 
 ## 🛠️ Quick Start
 
-### Using Docker (Recommended)
+### Local Development Setup
 
 1. **Clone the repository**
    ```bash
@@ -70,46 +69,58 @@ A comprehensive medieval fantasy text-based massively multiplayer online role-pl
    cd text-rpg
    ```
 
-2. **Environment Setup**
+2. **Set up PostgreSQL Database**
+   ```bash
+   # Create database
+   createdb text_rpg_db
+   
+   # Create user (optional)
+   psql -c "CREATE USER text_rpg_user WITH PASSWORD 'your_password';"
+   psql -c "GRANT ALL PRIVILEGES ON DATABASE text_rpg_db TO text_rpg_user;"
+   ```
+
+3. **Start Redis**
+   ```bash
+   redis-server
+   ```
+
+4. **Backend Setup**
+   ```bash
+   cd backend
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   pip install -r requirements-dev.txt
+   ```
+
+5. **Environment Configuration**
    ```bash
    cp .env.example .env
-   # Edit .env with your configuration
+   # Edit .env with your database and Redis connection strings
    ```
 
-3. **Start the application**
+6. **Initialize Database**
    ```bash
-   docker-compose up -d
+   alembic upgrade head
+   python scripts/init_game_data.py
    ```
 
-4. **Initialize the database**
+7. **Start Backend Server**
    ```bash
-   docker-compose exec backend alembic upgrade head
-   docker-compose exec backend python scripts/init_game_data.py
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
-5. **Access the application**
+8. **Frontend Setup (in new terminal)**
+   ```bash
+   cd frontend
+   npm install
+   npm start
+   ```
+
+9. **Access the application**
    - Game Interface: http://localhost:3000
    - API Documentation: http://localhost:8000/docs
    - Admin Panel: http://localhost:8000/admin
-
-### Local Development Setup
-
-#### Backend Setup
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-#### Frontend Setup
-```bash
-cd frontend
-npm install
-npm start
-```
 
 ## 📚 Project Documentation
 
@@ -117,6 +128,7 @@ npm start
 - **[Game Design Document](GAME_DESIGN_DOCUMENT.md)**: Complete technical specification
 - **[Technical Diagrams](TECHNICAL_DIAGRAMS.md)**: Mermaid diagrams for system architecture
 - **[Implementation Guide](PROJECT_IMPLEMENTATION_GUIDE.md)**: Development roadmap and team structure
+- **[Development Setup](DEVELOPMENT_SETUP.md)**: Detailed setup instructions
 
 ### Development Planning
 - **[GitHub Issues Breakdown](GITHUB_ISSUES_BREAKDOWN.md)**: Issues #1-17 (Infrastructure & Social Systems)
@@ -129,26 +141,27 @@ text-rpg/
 ├── backend/                    # FastAPI backend application
 │   ├── app/
 │   │   ├── api/               # API route definitions
-│   │   │   ├── core/              # Core configuration and security
-│   │   │   ├── models/            # SQLModel database models
-│   │   │   ├── schemas/           # Pydantic schemas
-│   │   │   ├── services/          # Business logic services
-│   │   │   └── utils/             # Utility functions
-│   │   ├── alembic/               # Database migrations
-│   │   ├── tests/                 # Backend tests
-│   │   └── requirements.txt       # Python dependencies
-│   ├── frontend/                   # React frontend application
-│   │   ├── src/
-│   │   │   ├── components/        # React components
-│   │   │   ├── pages/             # Page components
-│   │   │   ├── services/          # API services
-│   │   │   ├── stores/            # State management
-│   │   │   └── utils/             # Utility functions
-│   │   ├── public/                # Static assets
-│   │   └── package.json           # Node.js dependencies
-│   ├── docker-compose.yml         # Docker orchestration
-│   ├── .env.example               # Environment variables template
-│   └── docs/                      # Additional documentation
+│   │   ├── core/              # Core configuration and security
+│   │   ├── models/            # SQLModel database models
+│   │   ├── schemas/           # Pydantic schemas
+│   │   ├── services/          # Business logic services
+│   │   └── utils/             # Utility functions
+│   ├── alembic/               # Database migrations
+│   ├── tests/                 # Backend tests
+│   ├── scripts/               # Utility scripts
+│   ├── requirements.txt       # Python dependencies
+│   └── .env.example           # Environment variables template
+├── frontend/                   # React frontend application
+│   ├── src/
+│   │   ├── components/        # React components
+│   │   ├── pages/             # Page components
+│   │   ├── services/          # API services
+│   │   ├── stores/            # State management
+│   │   └── utils/             # Utility functions
+│   ├── public/                # Static assets
+│   └── package.json           # Node.js dependencies
+├── docs/                      # Additional documentation
+└── README.md                  # This file
 ```
 
 ## 🧪 Testing
@@ -156,6 +169,7 @@ text-rpg/
 ### Backend Tests
 ```bash
 cd backend
+source venv/bin/activate
 pytest tests/ -v
 ```
 
@@ -167,17 +181,68 @@ npm test
 
 ### Integration Tests
 ```bash
-docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
+# Set up test database
+createdb text_rpg_test_db
+# Run integration tests
+cd backend
+pytest tests/integration/ -v
 ```
 
 ## 🚀 Deployment
 
 ### Production Deployment
-1. Set up production environment variables
-2. Configure PostgreSQL and Redis instances
-3. Build and deploy Docker containers
-4. Run database migrations
-5. Set up monitoring and logging
+1. **Set up production servers**
+   - PostgreSQL instance with proper configuration
+   - Redis instance for caching and pub/sub
+   - Application server (VPS or cloud instance)
+
+2. **Configure environment**
+   ```bash
+   # Set production environment variables
+   export DATABASE_URL="postgresql://user:pass@localhost:5432/text_rpg_prod"
+   export REDIS_URL="redis://localhost:6379"
+   export SECRET_KEY="your-production-secret-key"
+   export ENVIRONMENT="production"
+   ```
+
+3. **Deploy backend**
+   ```bash
+   # Install dependencies
+   pip install -r requirements.txt
+   
+   # Run migrations
+   alembic upgrade head
+   
+   # Start with process manager
+   gunicorn app.main:app --bind 0.0.0.0:8000 --workers 4
+   ```
+
+4. **Deploy frontend**
+   ```bash
+   # Build for production
+   npm run build
+   
+   # Serve with nginx or static file server
+   ```
+
+5. **Set up reverse proxy (nginx)**
+   ```nginx
+   server {
+       listen 80;
+       server_name your-domain.com;
+       
+       location /api/ {
+           proxy_pass http://localhost:8000;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+       }
+       
+       location / {
+           root /path/to/frontend/build;
+           try_files $uri $uri/ /index.html;
+       }
+   }
+   ```
 
 ### Environment Variables
 Key environment variables required:
@@ -185,6 +250,7 @@ Key environment variables required:
 - `REDIS_URL`: Redis connection string
 - `SECRET_KEY`: JWT signing secret
 - `ENVIRONMENT`: Deployment environment (development/staging/production)
+- `DEBUG`: Enable debug mode (false for production)
 
 ## 🤝 Contributing
 
