@@ -1,273 +1,375 @@
 """
-Pytest configuration and fixtures for text-rpg backend tests.
+Pytest configuration and shared fixtures for the test suite.
 
-Sets up test database, fixtures, and factories for comprehensive testing.
+Provides common test fixtures and configuration for:
+- Database testing setup
+- Authentication mocking
+- Test client configuration
+- Environment setup
 """
 
 import pytest
-import asyncio
-from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from sqlmodel import create_engine, SQLModel
-import factory
-from faker import Faker
-from sqlalchemy.sql import text
-
-from app.core.config import settings
-from app.core.database import get_session
-from app.models import *
-from app.models.user import UserRole, UserStatus
-from app.models.skill import SkillCategory
-from app.models.inventory import ItemType, ItemRarity, EquipmentSlot
-from app.models.schemas import (
-    ChatSettings, PrivacySettings, CharacterSettings,
-    SkillBonuses, SkillAbilities,
-    ItemStats, ItemEffects, ItemAttributes
-)
 import os
+import sys
+from unittest.mock import Mock, AsyncMock, patch
+from datetime import datetime, timezone
+from uuid import uuid4
+from fastapi.testclient import TestClient
 
-# Override settings for testing
-# Use DATABASE_URL from environment if available (GitHub Actions), otherwise use SQLite
-test_database_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
+# Add the app directory to the Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-fake = Faker()
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
+from app.main import app
+from app.core.auth import auth_utils
+from app.models.user import User, UserRole, UserStatus
 
 
-@pytest.fixture(scope="session")
-async def engine():
-    """Create test database engine."""
-    # For SQLite, add foreign key enforcement at the engine level
-    if "sqlite" in test_database_url:
-        from sqlalchemy import event
-        
-        engine = create_async_engine(
-            test_database_url,
-            echo=False,
-            future=True
-        )
-        
-        # Enable foreign key constraints for SQLite
-        @event.listens_for(engine.sync_engine, "connect")
-        def set_sqlite_pragma(dbapi_connection, connection_record):
-            cursor = dbapi_connection.cursor()
-            cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.close()
-    else:
-        engine = create_async_engine(
-            test_database_url,
-            echo=False,
-            future=True
-        )
-    
-    yield engine
-    await engine.dispose()
-
-
-@pytest.fixture(scope="session")
-async def create_tables(engine):
-    """Create all database tables for testing."""
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
-    yield
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.drop_all)
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_environment():
+    """Set up test environment variables."""
+    os.environ["ENVIRONMENT"] = "test"
+    os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///test.db"
+    os.environ["REDIS_URL"] = "redis://localhost:6379/1"
+    os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
+    os.environ["API_RATE_LIMIT"] = "1000"  # Higher limit for testing
 
 
 @pytest.fixture
-async def db_session(engine, create_tables) -> AsyncGenerator[AsyncSession, None]:
-    """Create a fresh database session for each test."""
-    async_session_maker = sessionmaker(
-        bind=engine,
-        class_=AsyncSession,
-        expire_on_commit=False
-    )
-    
-    async with async_session_maker() as session:
-        # Enable foreign key constraints for SQLite
-        if "sqlite" in str(session.bind.url):
-            await session.execute(text("PRAGMA foreign_keys = ON"))
-        
-        # Clean up database before test
-        await _truncate_all_tables(session)
-        
-        yield session
-        
-        # Clean up database after test
-        await _truncate_all_tables(session)
-
-
-async def _truncate_all_tables(session: AsyncSession):
-    """Truncate all tables to ensure clean state between tests."""
-    try:
-        # If session has a pending rollback, roll it back first
-        if session.in_transaction() and session.get_transaction() and session.get_transaction().is_active:
-            try:
-                await session.rollback()
-            except Exception:
-                pass  # Session might already be rolled back
-
-        # Get all table names from metadata
-        metadata = SQLModel.metadata
-        table_names = [table.name for table in metadata.tables.values()]
-        
-        # For SQLite, we need to disable foreign key checks temporarily
-        if "sqlite" in str(session.bind.url):
-            await session.execute(text("PRAGMA foreign_keys = OFF"))
-            
-            # Delete from tables in reverse dependency order to avoid foreign key issues
-            for table_name in reversed(table_names):
-                await session.execute(text(f"DELETE FROM {table_name}"))
-            
-            await session.execute(text("PRAGMA foreign_keys = ON"))
-        else:
-            # For PostgreSQL and other databases
-            await session.execute(text("SET session_replication_role = replica"))
-            
-            for table_name in table_names:
-                await session.execute(text(f"TRUNCATE TABLE {table_name} CASCADE"))
-            
-            await session.execute(text("SET session_replication_role = DEFAULT"))
-        
-        await session.commit()
-    except Exception as e:
-        # If cleanup fails, just pass - the session might be in an invalid state
-        # This is acceptable since we're just trying to clean up for the next test
-        try:
-            await session.rollback()
-        except Exception:
-            pass
+def test_client():
+    """Create a test client for FastAPI app."""
+    return TestClient(app)
 
 
 @pytest.fixture
-def override_get_db(db_session):
-    """Override the get_session dependency for testing."""
-    async def _override_get_db():
-        yield db_session
-    return _override_get_db
-
-
-# Factory classes for test data generation
-class UserFactory(factory.Factory):
-    """Factory for creating test users."""
-    class Meta:
-        model = dict
+def authenticated_client(sample_user):
+    """Create a test client with authentication dependency overridden."""
+    from app.routers.auth import get_current_user
+    from app.core.database import get_session
     
-    username = factory.Sequence(lambda n: f"user{n}")
-    email = factory.LazyAttribute(lambda obj: f"{obj.username}@example.com")
-    hashed_password = "$2b$12$example_hashed_password"
-    role = UserRole.PLAYER
-    status = UserStatus.ACTIVE
-    is_verified = True
-    max_characters = 5
-    chat_settings = factory.LazyFunction(
-        lambda: ChatSettings().model_dump()
-    )
-    privacy_settings = factory.LazyFunction(
-        lambda: PrivacySettings().model_dump()
-    )
-
-
-class SkillFactory(factory.Factory):
-    """Factory for creating test skills."""
-    class Meta:
-        model = dict
+    # Override dependencies
+    app.dependency_overrides[get_current_user] = lambda: sample_user
+    app.dependency_overrides[get_session] = lambda: AsyncMock()
     
-    name = factory.Sequence(lambda n: f"Skill {n}")
-    description = factory.Faker('text', max_nb_chars=200)
-    category = factory.Faker('random_element', elements=[e.value for e in SkillCategory])
-    max_level = 100
-    base_experience_required = 100
-    experience_multiplier = 1.1
-    prerequisite_skills = factory.LazyFunction(dict)
-    min_character_level = 1
-    stat_bonuses = factory.LazyFunction(
-        lambda: SkillBonuses().model_dump()
-    )
-    abilities = factory.LazyFunction(
-        lambda: SkillAbilities().model_dump()
-    )
-    sort_order = factory.Sequence(lambda n: n)
-    is_active = True
-
-
-class ZoneFactory(factory.Factory):
-    """Factory for creating test zones."""
-    class Meta:
-        model = dict
+    client = TestClient(app)
     
-    name = factory.Sequence(lambda n: f"Zone {n}")
-    description = factory.Faker('text', max_nb_chars=500)
-    min_x = 0.0
-    max_x = 1000.0
-    min_y = 0.0
-    max_y = 1000.0
-    level_requirement = factory.Faker('random_int', min=1, max=100)
-    is_pvp_enabled = False
-    is_safe_zone = True
-    max_players = factory.Faker('random_int', min=10, max=100)
-    respawn_x = 500.0
-    respawn_y = 500.0
-
-
-class ItemFactory(factory.Factory):
-    """Factory for creating test items."""
-    class Meta:
-        model = dict
+    yield client
     
-    name = factory.Sequence(lambda n: f"Item {n}")
-    description = factory.Faker('text', max_nb_chars=200)
-    item_type = factory.Faker('random_element', elements=[e.value for e in ItemType])
-    rarity = factory.Faker('random_element', elements=[e.value for e in ItemRarity])
-    base_value = factory.Faker('random_int', min=1, max=1000)
-    max_stack_size = factory.Faker('random_int', min=1, max=100)
-    weight = factory.Faker('pyfloat', min_value=0.1, max_value=10.0)
-    required_level = factory.Faker('random_int', min=1, max=100)
-    stats = factory.LazyFunction(
-        lambda: ItemStats().model_dump()
-    )
-    effects = factory.LazyFunction(
-        lambda: ItemEffects().model_dump()
-    )
-    attributes = factory.LazyFunction(
-        lambda: ItemAttributes().model_dump()
-    )
-    is_tradeable = True
-    is_droppable = True
-    is_consumable = False
-    is_unique = False
+    # Clean up overrides
+    app.dependency_overrides.clear()
 
 
-class CharacterFactory(factory.Factory):
-    """Factory for creating test characters."""
-    class Meta:
-        model = dict
+@pytest.fixture
+def override_get_current_user():
+    """Helper fixture to override get_current_user dependency."""
+    from app.routers.auth import get_current_user
     
-    name = factory.Sequence(lambda n: f"Character {n}")
-    description = factory.Faker('text', max_nb_chars=500)
-    level = factory.Faker('random_int', min=1, max=100)
-    experience = factory.Faker('random_int', min=0, max=10000)
-    experience_to_next_level = factory.Faker('random_int', min=100, max=1000)
-    health = factory.Faker('random_int', min=50, max=500)
-    max_health = factory.Faker('random_int', min=100, max=1000)
-    mana = factory.Faker('random_int', min=25, max=250)
-    max_mana = factory.Faker('random_int', min=50, max=500)
-    gold = factory.Faker('random_int', min=0, max=10000)
-    is_online = False
-    is_in_combat = False
-    is_dead = False
-    x_coordinate = factory.Faker('pyfloat', min_value=0, max_value=1000)
-    y_coordinate = factory.Faker('pyfloat', min_value=0, max_value=1000)
-    total_skill_points = factory.Faker('random_int', min=0, max=1000)
-    available_skill_points = factory.Faker('random_int', min=0, max=100)
-    settings = factory.LazyFunction(
-        lambda: CharacterSettings().model_dump()
-    ) 
+    def _override_user(user):
+        app.dependency_overrides[get_current_user] = lambda: user
+        return lambda: None  # Return cleanup function
+    
+    yield _override_user
+    
+    # Clean up
+    if get_current_user in app.dependency_overrides:
+        del app.dependency_overrides[get_current_user]
+
+
+@pytest.fixture
+def mock_db_session():
+    """Create a mock database session."""
+    session = Mock()
+    session.add = Mock()
+    session.commit = Mock()
+    session.refresh = Mock()
+    session.exec = Mock()
+    return session
+
+
+@pytest.fixture
+def mock_redis_client():
+    """Create a mock Redis client."""
+    client = Mock()
+    client.get = Mock()
+    client.set = Mock()
+    client.delete = Mock()
+    client.exists = Mock()
+    client.ping = Mock(return_value=True)
+    client.info = Mock(return_value={"redis_version": "6.2.0"})
+    return client
+
+
+@pytest.fixture
+def sample_user():
+    """Create a sample user for testing."""
+    return User(
+        id=uuid4(),
+        username="testuser",
+        email="test@example.com",
+        hashed_password=auth_utils.get_password_hash("TestPassword123!"),
+        role=UserRole.PLAYER,
+        status=UserStatus.ACTIVE,
+        is_verified=True,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        last_login=None,
+        max_characters=5,
+        chat_settings={},
+        privacy_settings={},
+    )
+
+
+@pytest.fixture
+def admin_user():
+    """Create an admin user for testing."""
+    return User(
+        id=uuid4(),
+        username="admin",
+        email="admin@example.com",
+        hashed_password=auth_utils.get_password_hash("AdminPassword123!"),
+        role=UserRole.ADMIN,
+        status=UserStatus.ACTIVE,
+        is_verified=True,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        last_login=None,
+        max_characters=10,
+        chat_settings={},
+        privacy_settings={},
+    )
+
+
+@pytest.fixture
+def valid_jwt_token():
+    """Create a valid JWT token for testing."""
+    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0dXNlciIsImV4cCI6OTk5OTk5OTk5OX0.test"
+
+
+@pytest.fixture
+def auth_headers(valid_jwt_token):
+    """Create authentication headers for testing."""
+    return {"Authorization": f"Bearer {valid_jwt_token}"}
+
+
+@pytest.fixture
+def mock_auth_utils():
+    """Create a mock auth utils instance."""
+    with patch("app.core.auth.auth_utils") as mock:
+        mock.get_password_hash = Mock(return_value="hashed_password")
+        mock.verify_password = Mock(return_value=True)
+        mock.create_access_token = Mock(return_value="access_token")
+        mock.create_refresh_token = Mock(return_value="refresh_token")
+        mock.verify_token = Mock(return_value={"sub": "testuser", "jti": "token_jti"})
+        mock.authenticate_user = AsyncMock()
+        mock.get_user_by_username = AsyncMock()
+        mock.get_user_by_email = AsyncMock()
+        mock.get_user_by_id = AsyncMock()
+        mock.create_user_session = AsyncMock()
+        mock.revoke_user_session = AsyncMock()
+        mock.is_token_revoked = AsyncMock(return_value=False)
+        yield mock
+
+
+@pytest.fixture
+def mock_get_current_user(sample_user):
+    """Mock the get_current_user dependency."""
+    with patch("app.routers.auth.get_current_user", return_value=sample_user) as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_rate_limiter():
+    """Mock the rate limiting middleware."""
+    with patch("app.middleware.rate_limit.RateLimitMiddleware") as mock:
+        mock_instance = Mock()
+        mock_instance.dispatch = AsyncMock(
+            side_effect=lambda request, call_next: call_next(request)
+        )
+        mock.return_value = mock_instance
+        yield mock_instance
+
+
+@pytest.fixture
+def mock_security_middleware():
+    """Mock the security middleware."""
+    with patch("app.middleware.security.SecurityMiddleware") as mock:
+        mock_instance = Mock()
+        mock_instance.dispatch = AsyncMock(
+            side_effect=lambda request, call_next: call_next(request)
+        )
+        mock.return_value = mock_instance
+        yield mock_instance
+
+
+@pytest.fixture
+def mock_health_checker():
+    """Mock the health checker."""
+    with patch("app.core.health.health_checker") as mock:
+        mock.get_health_status = AsyncMock(
+            return_value={
+                "status": "healthy",
+                "timestamp": "2024-01-01T12:00:00Z",
+                "uptime": 3600,
+                "version": "1.0.0",
+                "checks": {
+                    "database": {"status": "healthy"},
+                    "redis": {"status": "healthy"},
+                    "system": {"status": "healthy"},
+                },
+            }
+        )
+        mock.is_ready = AsyncMock(return_value=True)
+        mock.is_alive = AsyncMock(return_value=True)
+        yield mock
+
+
+@pytest.fixture(autouse=True)
+def mock_database_dependencies():
+    """Automatically mock database dependencies for all tests."""
+    from app.core.database import get_session
+    
+    # Create mock session with async methods
+    mock_session = AsyncMock()
+    mock_session.add = Mock()
+    mock_session.commit = AsyncMock()
+    mock_session.refresh = AsyncMock()
+    mock_session.execute = AsyncMock()
+    mock_session.exec = Mock()  # For backward compatibility
+    mock_session.rollback = AsyncMock()
+    
+    # Mock result objects
+    mock_result = Mock()
+    mock_result.scalars.return_value.first.return_value = None
+    mock_result.scalars.return_value.all.return_value = []
+    mock_result.fetchone.return_value = None
+    mock_result.scalar.return_value = None
+    mock_session.execute.return_value = mock_result
+    mock_session.exec.return_value = mock_result
+    
+    # Override FastAPI dependency
+    app.dependency_overrides[get_session] = lambda: mock_session
+    
+    with (
+        patch("app.core.database.get_engine") as mock_get_engine,
+    ):
+        # Mock engine
+        mock_engine = Mock()
+        mock_get_engine.return_value = mock_engine
+
+        yield {"session": mock_session, "engine": mock_engine}
+    
+    # Clean up dependency overrides
+    if get_session in app.dependency_overrides:
+        del app.dependency_overrides[get_session]
+
+
+@pytest.fixture(autouse=True)
+def mock_redis_dependencies():
+    """Automatically mock Redis dependencies for all tests."""
+    with patch("redis.from_url") as mock_redis_factory:
+        mock_client = Mock()
+        mock_client.ping = Mock(return_value=True)
+        mock_client.get = Mock()
+        mock_client.set = Mock()
+        mock_client.delete = Mock()
+        mock_client.exists = Mock()
+        mock_client.pipeline = Mock()
+        mock_redis_factory.return_value = mock_client
+        yield mock_client
+
+
+@pytest.fixture
+def disable_auth():
+    """Disable authentication for testing endpoints without auth."""
+    with patch("app.routers.auth.get_current_user") as mock:
+        mock.return_value = None
+        yield mock
+
+
+@pytest.fixture
+def mock_request():
+    """Create a mock FastAPI request object."""
+    request = Mock()
+    request.method = "GET"
+    request.url.path = "/test"
+    request.headers = {}
+    request.client.host = "127.0.0.1"
+    request.url.__str__ = Mock(return_value="http://localhost:8000/test")
+    return request
+
+
+@pytest.fixture
+def mock_response():
+    """Create a mock FastAPI response object."""
+    from starlette.responses import Response
+
+    return Response("OK", status_code=200)
+
+
+# Pytest configuration
+def pytest_configure(config):
+    """Configure pytest with custom markers."""
+    config.addinivalue_line("markers", "integration: mark test as integration test")
+    config.addinivalue_line("markers", "unit: mark test as unit test")
+    config.addinivalue_line("markers", "middleware: mark test as middleware test")
+    config.addinivalue_line("markers", "auth: mark test as authentication test")
+    config.addinivalue_line("markers", "health: mark test as health check test")
+    config.addinivalue_line("markers", "slow: mark test as slow running")
+
+
+def pytest_collection_modifyitems(config, items):
+    """Automatically add markers based on test file location."""
+    for item in items:
+        # Add markers based on file path
+        if "integration" in str(item.fspath):
+            item.add_marker(pytest.mark.integration)
+        elif "unit" in str(item.fspath):
+            item.add_marker(pytest.mark.unit)
+        elif "middleware" in str(item.fspath):
+            item.add_marker(pytest.mark.middleware)
+
+        # Add markers based on test name patterns
+        if "auth" in item.name.lower():
+            item.add_marker(pytest.mark.auth)
+        elif "health" in item.name.lower():
+            item.add_marker(pytest.mark.health)
+
+
+# Test data factories
+class TestDataFactory:
+    """Factory for creating test data."""
+
+    @staticmethod
+    def user_registration_data(**overrides):
+        """Create user registration data."""
+        data = {
+            "username": "testuser",
+            "email": "test@example.com",
+            "password": "TestPassword123!",
+            "password_confirm": "TestPassword123!",
+        }
+        data.update(overrides)
+        return data
+
+    @staticmethod
+    def user_login_data(**overrides):
+        """Create user login data."""
+        data = {"username": "testuser", "password": "TestPassword123!"}
+        data.update(overrides)
+        return data
+
+    @staticmethod
+    def password_change_data(**overrides):
+        """Create password change data."""
+        data = {
+            "current_password": "CurrentPassword123!",
+            "new_password": "NewPassword123!",
+            "new_password_confirm": "NewPassword123!",
+        }
+        data.update(overrides)
+        return data
+
+
+@pytest.fixture
+def test_data():
+    """Provide test data factory."""
+    return TestDataFactory

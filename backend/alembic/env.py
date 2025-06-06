@@ -14,7 +14,7 @@ from sqlmodel import SQLModel
 from app.core.config import settings
 
 # Import all models to ensure they're registered with SQLModel.metadata
-from app.models import *
+from app.models import *  # noqa: F403
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -76,9 +76,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()
