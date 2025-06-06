@@ -28,6 +28,16 @@ AsyncSessionLocal = sessionmaker(
 )
 
 
+def get_engine():
+    """
+    Get the database engine for health checks and direct access.
+    
+    Returns:
+        AsyncEngine: Database engine
+    """
+    return engine
+
+
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency for getting async database session.

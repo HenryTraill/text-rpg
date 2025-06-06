@@ -3,12 +3,14 @@ Main FastAPI application entry point for the Text RPG API.
 
 This module sets up the FastAPI application with:
 - Database connection management
-- CORS configuration
+- Enhanced CORS configuration
+- Comprehensive middleware stack
+- Authentication and authorization
 - Health check endpoints
 - Application lifecycle events
 """
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
@@ -16,6 +18,9 @@ import logging
 from .core.config import settings
 from .core.database import create_db_and_tables, close_db_connection, check_database_health
 from .core.seeder import seed_database
+from .core.health import health_checker
+from .middleware import LoggingMiddleware, init_rate_limiter, init_security_middleware
+from .routers import auth_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -57,18 +62,33 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    description="A medieval fantasy text-based MMO RPG API",
+    description="A medieval fantasy text-based MMO RPG API with comprehensive authentication and security",
     lifespan=lifespan,
-    debug=settings.debug
+    debug=settings.debug,
+    docs_url="/docs" if settings.debug else None,
+    redoc_url="/redoc" if settings.debug else None
 )
 
-# Configure CORS
+# Add middleware (order matters - reverse execution order)
+# 1. Security middleware (first to execute, last to process response)
+security_middleware = init_security_middleware(app)
+app.add_middleware(type(security_middleware))
+
+# 2. Rate limiting middleware
+rate_limiter = init_rate_limiter(app)
+app.add_middleware(type(rate_limiter))
+
+# 3. Logging middleware
+app.add_middleware(LoggingMiddleware)
+
+# 4. Basic CORS (fallback for non-security middleware handled requests)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # React dev server
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+    expose_headers=["X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]
 )
 
 
@@ -83,19 +103,46 @@ async def root():
 
 
 @app.get("/health")
-async def health_check():
+async def health_check(details: bool = Query(False, description="Include detailed health metrics")):
     """
-    Health check endpoint for monitoring and load balancers.
+    Comprehensive health check endpoint for monitoring and load balancers.
+    
+    Args:
+        details: Include detailed metrics and diagnostics
     
     Returns:
-        dict: Health status including database connectivity
+        dict: Comprehensive health status including all system components
     """
-    db_healthy = await check_database_health()
+    return await health_checker.get_health_status(include_details=details)
+
+
+@app.get("/ready")
+async def readiness_check():
+    """
+    Readiness check endpoint for Kubernetes and container orchestration.
     
+    Returns:
+        dict: Readiness status
+    """
+    is_ready = await health_checker.is_ready()
     return {
-        "status": "healthy" if db_healthy else "unhealthy",
-        "database": "connected" if db_healthy else "disconnected",
-        "version": settings.app_version
+        "ready": is_ready,
+        "status": "ready" if is_ready else "not_ready"
+    }
+
+
+@app.get("/alive")
+async def liveness_check():
+    """
+    Liveness check endpoint for Kubernetes and container orchestration.
+    
+    Returns:
+        dict: Liveness status
+    """
+    is_alive = await health_checker.is_alive()
+    return {
+        "alive": is_alive,
+        "status": "alive" if is_alive else "dead"
     }
 
 
@@ -130,16 +177,18 @@ async def api_info():
     }
 
 
-# Include API routers (will be added in future issues)
-# app.include_router(auth_router, prefix="/api/auth", tags=["authentication"])
-# app.include_router(character_router, prefix="/api/characters", tags=["characters"])
-# app.include_router(skill_router, prefix="/api/skills", tags=["skills"])
-# app.include_router(inventory_router, prefix="/api/inventory", tags=["inventory"])
-# app.include_router(world_router, prefix="/api/world", tags=["world"])
-# app.include_router(combat_router, prefix="/api/combat", tags=["combat"])
-# app.include_router(social_router, prefix="/api/social", tags=["social"])
-# app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
-# app.include_router(economy_router, prefix="/api/economy", tags=["economy"])
+# Include API routers with versioning structure
+app.include_router(auth_router, prefix="/api/v1", tags=["authentication"])
+
+# Future routers (will be added in future issues)
+# app.include_router(character_router, prefix="/api/v1/characters", tags=["characters"])
+# app.include_router(skill_router, prefix="/api/v1/skills", tags=["skills"])
+# app.include_router(inventory_router, prefix="/api/v1/inventory", tags=["inventory"])
+# app.include_router(world_router, prefix="/api/v1/world", tags=["world"])
+# app.include_router(combat_router, prefix="/api/v1/combat", tags=["combat"])
+# app.include_router(social_router, prefix="/api/v1/social", tags=["social"])
+# app.include_router(chat_router, prefix="/api/v1/chat", tags=["chat"])
+# app.include_router(economy_router, prefix="/api/v1/economy", tags=["economy"])
 
 
 if __name__ == "__main__":
