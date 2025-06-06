@@ -15,12 +15,12 @@ from .auth import (
     UserSessionResponse,
     LogoutRequest,
     AuthenticationResponse,
-    ErrorResponse
+    ErrorResponse,
 )
 
 __all__ = [
     "UserRegistrationRequest",
-    "UserLoginRequest", 
+    "UserLoginRequest",
     "TokenResponse",
     "RefreshTokenRequest",
     "UserResponse",
@@ -29,5 +29,5 @@ __all__ = [
     "UserSessionResponse",
     "LogoutRequest",
     "AuthenticationResponse",
-    "ErrorResponse"
-] 
+    "ErrorResponse",
+]

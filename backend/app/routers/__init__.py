@@ -9,6 +9,4 @@ This package contains FastAPI routers for:
 
 from .auth import router as auth_router
 
-__all__ = [
-    "auth_router"
-] 
+__all__ = ["auth_router"]

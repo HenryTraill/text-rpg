@@ -30,17 +30,13 @@ else:
     )
 
 # Create session factory
-AsyncSessionLocal = sessionmaker(
-    engine, 
-    class_=AsyncSession, 
-    expire_on_commit=False
-)
+AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 def get_engine():
     """
     Get the database engine for health checks and direct access.
-    
+
     Returns:
         AsyncEngine: Database engine
     """
@@ -50,7 +46,7 @@ def get_engine():
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency for getting async database session.
-    
+
     Yields:
         AsyncSession: Database session
     """
@@ -86,7 +82,7 @@ async def create_db_and_tables():
         except ImportError:
             # Models not created yet
             pass
-        
+
         # Create all tables
         await conn.run_sync(SQLModel.metadata.create_all)
         logger.info("Database tables created successfully")
@@ -105,7 +101,7 @@ async def close_db_connection():
 async def check_database_health() -> bool:
     """
     Check if database connection is healthy.
-    
+
     Returns:
         bool: True if database is accessible, False otherwise
     """
