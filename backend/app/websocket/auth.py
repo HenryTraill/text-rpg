@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import WebSocket, WebSocketException, status
 from jose import JWTError
 
-from app.core.auth import verify_token
+from app.core.auth import auth_utils
 from app.models.user import User
 from app.core.database import get_session
 
@@ -47,7 +47,7 @@ async def authenticate_websocket(
     
     try:
         # Verify JWT token
-        payload = verify_token(token)
+        payload = auth_utils.verify_token(token)
         user_id = UUID(payload.get("sub"))
         
         # Get user from database
@@ -148,7 +148,7 @@ async def periodic_token_validation(connection_id: str, token: str) -> bool:
         True if token is still valid, False otherwise
     """
     try:
-        payload = verify_token(token)
+        payload = auth_utils.verify_token(token)
         user_id = UUID(payload.get("sub"))
         
         # Additional checks for user status

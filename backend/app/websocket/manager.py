@@ -14,7 +14,7 @@ import redis.asyncio as redis
 from fastapi import WebSocket, WebSocketDisconnect
 from sqlmodel import Session
 
-from app.core.auth import verify_token
+from app.core.auth import auth_utils
 from app.core.database import get_session
 from app.core.redis import get_redis
 
@@ -69,7 +69,7 @@ class ConnectionManager:
         user_id = None
         if token:
             try:
-                payload = verify_token(token)
+                payload = auth_utils.verify_token(token)
                 user_id = UUID(payload.get("sub"))
                 logger.info(f"WebSocket connection authenticated for user {user_id}")
             except Exception as e:

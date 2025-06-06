@@ -86,6 +86,30 @@ def mock_db_session():
 
 
 @pytest.fixture
+def db_session():
+    """Create a database session fixture that returns the mocked session."""
+    from app.core.database import get_session
+    
+    # Create mock session with async methods
+    mock_session = AsyncMock()
+    mock_session.add = Mock()
+    mock_session.commit = AsyncMock()
+    mock_session.refresh = AsyncMock()
+    mock_session.execute = AsyncMock()
+    mock_session.add_all = Mock()
+    
+    # Mock result objects
+    mock_result = Mock()
+    mock_result.scalars.return_value.first.return_value = None
+    mock_result.scalars.return_value.all.return_value = []
+    mock_result.scalar_one_or_none.return_value = None
+    mock_result.scalar_one.return_value = None
+    mock_session.execute.return_value = mock_result
+    
+    return mock_session
+
+
+@pytest.fixture
 def mock_redis_client():
     """Create a mock Redis client."""
     client = Mock()
@@ -373,3 +397,111 @@ class TestDataFactory:
 def test_data():
     """Provide test data factory."""
     return TestDataFactory
+
+
+# Model factories for testing
+def UserFactory(**overrides):
+    """Create test user data."""
+    from app.models.user import UserRole, UserStatus
+    data = {
+        "username": f"testuser_{uuid4().hex[:8]}",
+        "email": f"test_{uuid4().hex[:8]}@example.com",
+        "hashed_password": auth_utils.get_password_hash("TestPassword123!"),
+        "role": UserRole.PLAYER,
+        "status": UserStatus.ACTIVE,
+        "is_verified": True,
+        "max_characters": 5,
+        "chat_settings": {"global_enabled": True, "private_enabled": True},
+        "privacy_settings": {"show_online_status": True, "allow_friend_requests": True},
+    }
+    data.update(overrides)
+    return data
+
+
+def SkillFactory(**overrides):
+    """Create test skill data."""
+    from app.models.skill import SkillCategory
+    data = {
+        "name": f"Test Skill {uuid4().hex[:8]}",
+        "description": "A test skill for testing purposes",
+        "category": SkillCategory.COMBAT.value,
+        "max_level": 100,
+        "base_experience": 100,
+        "experience_multiplier": 1.5,
+        "stat_bonuses": {"strength": 1, "agility": 1},
+        "abilities": {"basic_attack": {"level": 1, "damage": 10}},
+        "prerequisite_skills": {},
+        "is_active": True,
+    }
+    data.update(overrides)
+    return data
+
+
+def ZoneFactory(**overrides):
+    """Create test zone data."""
+    data = {
+        "name": f"Test Zone {uuid4().hex[:8]}",
+        "description": "A test zone for testing purposes",
+        "min_x": 0.0,
+        "max_x": 1000.0,
+        "min_y": 0.0,
+        "max_y": 1000.0,
+        "level_requirement": 1,
+        "is_safe": True,
+        "is_active": True,
+        "spawn_rates": {"monster": 0.1, "resource": 0.2},
+        "weather_effects": {"clear": 0.7, "rain": 0.3},
+        "special_properties": {},
+    }
+    data.update(overrides)
+    return data
+
+
+def ItemFactory(**overrides):
+    """Create test item data."""
+    from app.models.inventory import ItemType, ItemRarity
+    data = {
+        "name": f"Test Item {uuid4().hex[:8]}",
+        "description": "A test item for testing purposes",
+        "item_type": ItemType.WEAPON.value,
+        "rarity": ItemRarity.COMMON.value,
+        "base_value": 100,
+        "weight": 1.0,
+        "max_stack": 1,
+        "is_tradeable": True,
+        "is_consumable": False,
+        "stats": {"damage": 10, "accuracy": 5},
+        "effects": {},
+        "attributes": {},
+    }
+    data.update(overrides)
+    return data
+
+
+def CharacterFactory(**overrides):
+    """Create test character data."""
+    data = {
+        "name": f"TestChar_{uuid4().hex[:8]}",
+        "class_type": "warrior",
+        "level": 1,
+        "experience": 0,
+        "health": 100,
+        "max_health": 100,
+        "mana": 50,
+        "max_mana": 50,
+        "strength": 10,
+        "agility": 10,
+        "intelligence": 10,
+        "vitality": 10,
+        "luck": 10,
+        "gold": 100,
+        "x_coordinate": 500.0,
+        "y_coordinate": 500.0,
+        "is_online": False,
+        "is_active": True,
+        "last_login": None,
+        "stats": {},
+        "preferences": {},
+    }
+    data.update(overrides)
+    return data
