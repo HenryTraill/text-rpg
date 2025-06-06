@@ -12,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import create_engine, SQLModel
 import factory
 from faker import Faker
+from sqlalchemy.sql import text
 
 from app.core.config import settings
 from app.core.database import get_session
@@ -44,11 +45,29 @@ def event_loop():
 @pytest.fixture(scope="session")
 async def engine():
     """Create test database engine."""
-    engine = create_async_engine(
-        test_database_url,
-        echo=False,
-        future=True
-    )
+    # For SQLite, add foreign key enforcement at the engine level
+    if "sqlite" in test_database_url:
+        from sqlalchemy import event
+        
+        engine = create_async_engine(
+            test_database_url,
+            echo=False,
+            future=True
+        )
+        
+        # Enable foreign key constraints for SQLite
+        @event.listens_for(engine.sync_engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+    else:
+        engine = create_async_engine(
+            test_database_url,
+            echo=False,
+            future=True
+        )
+    
     yield engine
     await engine.dispose()
 
@@ -73,8 +92,59 @@ async def db_session(engine, create_tables) -> AsyncGenerator[AsyncSession, None
     )
     
     async with async_session_maker() as session:
+        # Enable foreign key constraints for SQLite
+        if "sqlite" in str(session.bind.url):
+            await session.execute(text("PRAGMA foreign_keys = ON"))
+        
+        # Clean up database before test
+        await _truncate_all_tables(session)
+        
         yield session
-        await session.rollback()
+        
+        # Clean up database after test
+        await _truncate_all_tables(session)
+
+
+async def _truncate_all_tables(session: AsyncSession):
+    """Truncate all tables to ensure clean state between tests."""
+    try:
+        # If session has a pending rollback, roll it back first
+        if session.in_transaction() and session.get_transaction() and session.get_transaction().is_active:
+            try:
+                await session.rollback()
+            except Exception:
+                pass  # Session might already be rolled back
+
+        # Get all table names from metadata
+        metadata = SQLModel.metadata
+        table_names = [table.name for table in metadata.tables.values()]
+        
+        # For SQLite, we need to disable foreign key checks temporarily
+        if "sqlite" in str(session.bind.url):
+            await session.execute(text("PRAGMA foreign_keys = OFF"))
+            
+            # Delete from tables in reverse dependency order to avoid foreign key issues
+            for table_name in reversed(table_names):
+                await session.execute(text(f"DELETE FROM {table_name}"))
+            
+            await session.execute(text("PRAGMA foreign_keys = ON"))
+        else:
+            # For PostgreSQL and other databases
+            await session.execute(text("SET session_replication_role = replica"))
+            
+            for table_name in table_names:
+                await session.execute(text(f"TRUNCATE TABLE {table_name} CASCADE"))
+            
+            await session.execute(text("SET session_replication_role = DEFAULT"))
+        
+        await session.commit()
+    except Exception as e:
+        # If cleanup fails, just pass - the session might be in an invalid state
+        # This is acceptable since we're just trying to clean up for the next test
+        try:
+            await session.rollback()
+        except Exception:
+            pass
 
 
 @pytest.fixture

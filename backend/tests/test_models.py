@@ -8,6 +8,7 @@ import pytest
 from sqlmodel import select
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
+import uuid
 
 from app.models import *
 from .conftest import UserFactory, SkillFactory, ZoneFactory, ItemFactory, CharacterFactory
@@ -268,6 +269,8 @@ class TestItemModel:
     
     async def test_item_types_and_rarities(self, db_session):
         """Test all item types and rarities."""
+        # Create items of different types and rarities with unique names
+        test_uuid = str(uuid.uuid4())[:8]
         item_types = [ItemType.WEAPON, ItemType.ARMOR, ItemType.CONSUMABLE, 
                      ItemType.MATERIAL, ItemType.TOOL]
         rarities = [ItemRarity.COMMON, ItemRarity.UNCOMMON, ItemRarity.RARE, 
@@ -278,14 +281,17 @@ class TestItemModel:
                 item_data = ItemFactory()
                 item_data["item_type"] = item_type.value
                 item_data["rarity"] = rarity.value
+                item_data["name"] = f"{item_type.value}_{rarity.value}_{test_uuid}"
                 item = Item(**item_data)
                 
                 db_session.add(item)
         
         await db_session.commit()
         
-        # Verify items were saved with correct types
-        result = await db_session.execute(select(Item))
+        # Verify items were saved with correct types (only count items created in this test)
+        result = await db_session.execute(
+            select(Item).where(Item.name.like(f"%{test_uuid}%"))
+        )
         items = result.scalars().all()
         
         assert len(items) == len(item_types) * len(rarities)
@@ -587,12 +593,13 @@ class TestModelQueries:
         await db_session.refresh(user)
         await db_session.refresh(zone)
         
-        # Create multiple characters for the user
+        # Create multiple characters for the user with unique names
+        test_uuid = str(uuid.uuid4())[:8]
         for i in range(3):
             char_data = CharacterFactory()
             char_data["user_id"] = user.id
             char_data["current_zone_id"] = zone.id
-            char_data["name"] = f"Character {i}"
+            char_data["name"] = f"TestChar_{test_uuid}_{i}"
             character = Character(**char_data)
             db_session.add(character)
         
@@ -610,22 +617,26 @@ class TestModelQueries:
     
     async def test_skill_by_category(self, db_session):
         """Test querying skills by category."""
-        # Create skills in different categories
+        # Create skills in different categories with unique names
+        test_uuid = str(uuid.uuid4())[:8]
         categories = [SkillCategory.COMBAT, SkillCategory.GATHERING, SkillCategory.CRAFTING]
         
         for category in categories:
             for i in range(2):
                 skill_data = SkillFactory()
                 skill_data["category"] = category.value
-                skill_data["name"] = f"{category.value} Skill {i}"
+                skill_data["name"] = f"{category.value}_Skill_{test_uuid}_{i}"
                 skill = Skill(**skill_data)
                 db_session.add(skill)
         
         await db_session.commit()
         
-        # Query combat skills
+        # Query combat skills created in this test
         result = await db_session.execute(
-            select(Skill).where(Skill.category == SkillCategory.COMBAT)
+            select(Skill).where(
+                Skill.category == SkillCategory.COMBAT,
+                Skill.name.like(f"%{test_uuid}%")
+            )
         )
         combat_skills = result.scalars().all()
         
@@ -635,22 +646,26 @@ class TestModelQueries:
     
     async def test_items_by_type(self, db_session):
         """Test querying items by type."""
-        # Create items of different types
+        # Create items of different types with unique names
+        test_uuid = str(uuid.uuid4())[:8]
         item_types = [ItemType.WEAPON, ItemType.ARMOR, ItemType.CONSUMABLE]
         
         for item_type in item_types:
             for i in range(2):
                 item_data = ItemFactory()
                 item_data["item_type"] = item_type.value
-                item_data["name"] = f"{item_type.value} {i}"
+                item_data["name"] = f"{item_type.value}_{test_uuid}_{i}"
                 item = Item(**item_data)
                 db_session.add(item)
         
         await db_session.commit()
         
-        # Query weapons
+        # Query weapons created in this test
         result = await db_session.execute(
-            select(Item).where(Item.item_type == ItemType.WEAPON)
+            select(Item).where(
+                Item.item_type == ItemType.WEAPON,
+                Item.name.like(f"%{test_uuid}%")
+            )
         )
         weapons = result.scalars().all()
         

@@ -32,8 +32,14 @@ class TestSettings:
         """Test that database URL has correct format."""
         test_settings = Settings()
         
-        assert test_settings.database_url.startswith("postgresql+asyncpg://")
-        assert "@" in test_settings.database_url
+        # Test should work for both PostgreSQL (production) and SQLite (testing)
+        assert (
+            test_settings.database_url.startswith("postgresql+asyncpg://") or 
+            test_settings.database_url.startswith("sqlite+aiosqlite://")
+        )
+        # Ensure the URL contains expected components
+        if test_settings.database_url.startswith("postgresql+asyncpg://"):
+            assert "@" in test_settings.database_url
         assert "/" in test_settings.database_url
     
     def test_environment_override(self):
