@@ -1,9 +1,13 @@
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, JSON
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from uuid import UUID, uuid4
 import enum
+from app.core.datetime_utils import utc_now
+
+if TYPE_CHECKING:
+    from .character import Character
 from .schemas import ItemStats, ItemEffects, ItemAttributes
 
 
@@ -99,8 +103,8 @@ class Item(SQLModel, table=True):
     lore_text: Optional[str] = Field(default=None)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now())
-    updated_at: datetime = Field(default_factory=lambda: datetime.now())
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
     inventory_slots: List["InventorySlot"] = Relationship(back_populates="item")
@@ -143,7 +147,7 @@ class InventorySlot(SQLModel, table=True):
     bound_to_character: bool = Field(default=False)
 
     # Timestamps
-    acquired_at: datetime = Field(default_factory=lambda: datetime.now())
+    acquired_at: datetime = Field(default_factory=utc_now)
     last_used: Optional[datetime] = Field(default=None)
 
     # Relationships

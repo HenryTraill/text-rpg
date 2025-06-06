@@ -1,8 +1,12 @@
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, JSON
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from uuid import UUID, uuid4
+from app.core.datetime_utils import utc_now
+
+if TYPE_CHECKING:
+    from .character import Character
 
 
 class CombatSession(SQLModel, table=True):
@@ -14,7 +18,7 @@ class CombatSession(SQLModel, table=True):
     status: str = Field(default="active")  # active, completed, cancelled
     turn_number: int = Field(default=1)
     current_turn_character_id: Optional[UUID] = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now())
+    created_at: datetime = Field(default_factory=utc_now)
     ended_at: Optional[datetime] = Field(default=None)
 
     # Relationships
@@ -53,7 +57,7 @@ class CombatAction(SQLModel, table=True):
     turn_number: int
     action_data: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
     result_data: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=lambda: datetime.now())
+    created_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
     combat_session: CombatSession = Relationship(back_populates="actions")
@@ -70,4 +74,4 @@ class CombatResult(SQLModel, table=True):
     experience_awarded: int = Field(default=0)
     gold_awarded: int = Field(default=0)
     items_awarded: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=lambda: datetime.now())
+    created_at: datetime = Field(default_factory=utc_now)

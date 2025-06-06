@@ -32,9 +32,12 @@ class TestAuthEndpoints:
     @pytest.fixture
     def sample_user_data(self):
         """Sample user registration data."""
+        import time
+
+        timestamp = int(time.time())
         return {
-            "username": "testuser",
-            "email": "test@example.com",
+            "username": f"testuser_{timestamp}",
+            "email": f"test_{timestamp}@example.com",
             "password": "TestPassword123!",
             "password_confirm": "TestPassword123!",
         }
@@ -61,10 +64,10 @@ class TestAuthEndpoints:
 
     def test_register_user_success(self, client, sample_user_data):
         """Test successful user registration."""
-        with patch("app.routers.auth.get_session") as mock_get_session, patch(
-            "app.routers.auth.auth_utils"
-        ) as mock_auth_utils:
-
+        with (
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
             # Mock database session
             mock_session = Mock()
             mock_get_session.return_value = mock_session
@@ -94,10 +97,10 @@ class TestAuthEndpoints:
 
     def test_register_user_username_exists(self, client, sample_user_data, mock_user):
         """Test registration with existing username."""
-        with patch("app.routers.auth.get_session") as mock_get_session, patch(
-            "app.routers.auth.auth_utils"
-        ) as mock_auth_utils:
-
+        with (
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
             mock_auth_utils.get_user_by_username = AsyncMock(return_value=mock_user)
@@ -110,10 +113,10 @@ class TestAuthEndpoints:
 
     def test_register_user_email_exists(self, client, sample_user_data, mock_user):
         """Test registration with existing email."""
-        with patch("app.routers.auth.get_session") as mock_get_session, patch(
-            "app.routers.auth.auth_utils"
-        ) as mock_auth_utils:
-
+        with (
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
             mock_auth_utils.get_user_by_username = AsyncMock(return_value=None)
@@ -140,10 +143,10 @@ class TestAuthEndpoints:
 
     def test_login_user_success(self, client, sample_login_data, mock_user):
         """Test successful user login."""
-        with patch("app.routers.auth.get_session") as mock_get_session, patch(
-            "app.routers.auth.auth_utils"
-        ) as mock_auth_utils:
-
+        with (
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
 
@@ -167,10 +170,10 @@ class TestAuthEndpoints:
 
     def test_login_user_invalid_credentials(self, client, sample_login_data):
         """Test login with invalid credentials."""
-        with patch("app.routers.auth.get_session") as mock_get_session, patch(
-            "app.routers.auth.auth_utils"
-        ) as mock_auth_utils:
-
+        with (
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
             mock_auth_utils.authenticate_user = AsyncMock(return_value=None)
@@ -185,10 +188,10 @@ class TestAuthEndpoints:
         """Test login with inactive account."""
         mock_user.status = UserStatus.SUSPENDED
 
-        with patch("app.routers.auth.get_session") as mock_get_session, patch(
-            "app.routers.auth.auth_utils"
-        ) as mock_auth_utils:
-
+        with (
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
             mock_auth_utils.authenticate_user = AsyncMock(return_value=mock_user)
@@ -203,10 +206,10 @@ class TestAuthEndpoints:
         """Test successful token refresh."""
         refresh_data = {"refresh_token": "valid_refresh_token"}
 
-        with patch("app.routers.auth.get_session") as mock_get_session, patch(
-            "app.routers.auth.auth_utils"
-        ) as mock_auth_utils:
-
+        with (
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
 
@@ -230,10 +233,10 @@ class TestAuthEndpoints:
         """Test token refresh with invalid token."""
         refresh_data = {"refresh_token": "invalid_token"}
 
-        with patch("app.routers.auth.get_session") as mock_get_session, patch(
-            "app.routers.auth.auth_utils"
-        ) as mock_auth_utils:
-
+        with (
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
 
@@ -273,10 +276,10 @@ class TestAuthEndpoints:
             "privacy_settings": {"show_online": False},
         }
 
-        with patch("app.routers.auth.get_current_user", return_value=mock_user), patch(
-            "app.routers.auth.get_session"
-        ) as mock_get_session:
-
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
 
@@ -299,10 +302,11 @@ class TestAuthEndpoints:
             "new_password_confirm": "NewPassword123!",
         }
 
-        with patch("app.routers.auth.get_current_user", return_value=mock_user), patch(
-            "app.routers.auth.get_session"
-        ) as mock_get_session, patch("app.routers.auth.auth_utils") as mock_auth_utils:
-
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
             mock_auth_utils.verify_password.return_value = True
@@ -327,10 +331,11 @@ class TestAuthEndpoints:
             "new_password_confirm": "NewPassword123!",
         }
 
-        with patch("app.routers.auth.get_current_user", return_value=mock_user), patch(
-            "app.routers.auth.get_session"
-        ) as mock_get_session, patch("app.routers.auth.auth_utils") as mock_auth_utils:
-
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
             mock_auth_utils.verify_password.return_value = False
@@ -349,14 +354,12 @@ class TestAuthEndpoints:
         """Test logout of current session."""
         logout_data = {"revoke_all_sessions": False}
 
-        with patch("app.routers.auth.get_current_user", return_value=mock_user), patch(
-            "app.routers.auth.get_session"
-        ) as mock_get_session, patch(
-            "app.routers.auth.auth_utils"
-        ) as mock_auth_utils, patch(
-            "app.routers.auth.security"
-        ) as mock_security:
-
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+            patch("app.routers.auth.security") as mock_security,
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
 
@@ -382,16 +385,13 @@ class TestAuthEndpoints:
         """Test logout of all sessions."""
         logout_data = {"revoke_all_sessions": True}
 
-        with patch("app.routers.auth.get_current_user", return_value=mock_user), patch(
-            "app.routers.auth.get_session"
-        ) as mock_get_session, patch(
-            "app.routers.auth.auth_utils"
-        ) as mock_auth_utils, patch(
-            "app.routers.auth.security"
-        ) as mock_security, patch(
-            "app.routers.auth.select"
-        ) as mock_select:
-
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+            patch("app.routers.auth.security") as mock_security,
+            patch("app.routers.auth.select"),
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
 
@@ -418,10 +418,11 @@ class TestAuthEndpoints:
 
     def test_get_user_sessions(self, client, mock_user):
         """Test getting user's active sessions."""
-        with patch("app.routers.auth.get_current_user", return_value=mock_user), patch(
-            "app.routers.auth.get_session"
-        ) as mock_get_session, patch("app.routers.auth.select") as mock_select:
-
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.select"),
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
 
@@ -451,10 +452,11 @@ class TestAuthEndpoints:
         """Test revoking a specific user session."""
         session_id = uuid4()
 
-        with patch("app.routers.auth.get_current_user", return_value=mock_user), patch(
-            "app.routers.auth.get_session"
-        ) as mock_get_session, patch("app.routers.auth.select") as mock_select:
-
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.select"),
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
 
@@ -478,10 +480,11 @@ class TestAuthEndpoints:
         """Test revoking a non-existent session."""
         session_id = uuid4()
 
-        with patch("app.routers.auth.get_current_user", return_value=mock_user), patch(
-            "app.routers.auth.get_session"
-        ) as mock_get_session, patch("app.routers.auth.select") as mock_select:
-
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.select"),
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
             mock_session.exec.return_value.first.return_value = None
@@ -495,6 +498,274 @@ class TestAuthEndpoints:
         data = response.json()
         assert "Session not found" in data["detail"]
 
+    def test_login_with_email(self, client, mock_user):
+        """Test successful login using email instead of username."""
+        email_login_data = {
+            "username": "test@example.com",  # Using email in username field
+            "password": "TestPassword123!",
+        }
+
+        with (
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
+            mock_session = Mock()
+            mock_get_session.return_value = mock_session
+
+            mock_auth_utils.authenticate_user = AsyncMock(return_value=mock_user)
+            mock_auth_utils.create_access_token.return_value = "access_token"
+            mock_auth_utils.create_refresh_token.return_value = "refresh_token"
+            mock_auth_utils.verify_token.return_value = {
+                "jti": "token_jti",
+                "exp": 1234567890,
+            }
+            mock_auth_utils.create_user_session = AsyncMock()
+
+            response = client.post("/api/v1/auth/login", json=email_login_data)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["message"] == "Login successful"
+
+    def test_login_case_insensitive(self, client, mock_user):
+        """Test case-insensitive login with username and email."""
+        test_cases = [
+            {
+                "username": "TESTUSER",
+                "password": "TestPassword123!",
+            },  # Uppercase username
+            {
+                "username": "TestUser",
+                "password": "TestPassword123!",
+            },  # Mixed case username
+            {
+                "username": "TEST@EXAMPLE.COM",
+                "password": "TestPassword123!",
+            },  # Uppercase email
+            {
+                "username": "Test@Example.Com",
+                "password": "TestPassword123!",
+            },  # Mixed case email
+        ]
+
+        for login_data in test_cases:
+            with (
+                patch("app.routers.auth.get_session") as mock_get_session,
+                patch("app.routers.auth.auth_utils") as mock_auth_utils,
+            ):
+                mock_session = Mock()
+                mock_get_session.return_value = mock_session
+
+                mock_auth_utils.authenticate_user = AsyncMock(return_value=mock_user)
+                mock_auth_utils.create_access_token.return_value = "access_token"
+                mock_auth_utils.create_refresh_token.return_value = "refresh_token"
+                mock_auth_utils.verify_token.return_value = {
+                    "jti": "token_jti",
+                    "exp": 1234567890,
+                }
+                mock_auth_utils.create_user_session = AsyncMock()
+
+                response = client.post("/api/v1/auth/login", json=login_data)
+
+            assert response.status_code == 200, f"Failed for login data: {login_data}"
+            data = response.json()
+            assert data["success"] is True
+
+    def test_update_profile_username(self, client, mock_user):
+        """Test updating user profile username."""
+        update_data = {"username": "newusername"}
+
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
+            mock_session = Mock()
+            mock_get_session.return_value = mock_session
+            mock_auth_utils.get_user_by_username = AsyncMock(return_value=None)
+
+            response = client.put(
+                "/api/v1/auth/me",
+                json=update_data,
+                headers={"Authorization": "Bearer valid_token"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["username"] == "newusername"
+
+    def test_update_profile_username_already_taken(self, client, mock_user):
+        """Test updating username to one that already exists."""
+        update_data = {"username": "existinguser"}
+        existing_user = Mock()
+
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
+            mock_session = Mock()
+            mock_get_session.return_value = mock_session
+            mock_auth_utils.get_user_by_username = AsyncMock(return_value=existing_user)
+
+            response = client.put(
+                "/api/v1/auth/me",
+                json=update_data,
+                headers={"Authorization": "Bearer valid_token"},
+            )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "Username already taken" in data["detail"]
+
+    def test_update_profile_email(self, client, mock_user):
+        """Test updating user profile email."""
+        update_data = {"email": "newemail@example.com"}
+
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
+            mock_session = Mock()
+            mock_get_session.return_value = mock_session
+            mock_auth_utils.get_user_by_email = AsyncMock(return_value=None)
+
+            response = client.put(
+                "/api/v1/auth/me",
+                json=update_data,
+                headers={"Authorization": "Bearer valid_token"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["email"] == "newemail@example.com"
+
+    def test_update_profile_email_already_taken(self, client, mock_user):
+        """Test updating email to one that already exists."""
+        update_data = {"email": "existing@example.com"}
+        existing_user = Mock()
+
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
+            mock_session = Mock()
+            mock_get_session.return_value = mock_session
+            mock_auth_utils.get_user_by_email = AsyncMock(return_value=existing_user)
+
+            response = client.put(
+                "/api/v1/auth/me",
+                json=update_data,
+                headers={"Authorization": "Bearer valid_token"},
+            )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "Email already in use by another account" in data["detail"]
+
+    def test_update_profile_max_characters(self, client, mock_user):
+        """Test updating user profile max_characters."""
+        update_data = {"max_characters": 8}
+
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+        ):
+            mock_session = Mock()
+            mock_get_session.return_value = mock_session
+
+            response = client.put(
+                "/api/v1/auth/me",
+                json=update_data,
+                headers={"Authorization": "Bearer valid_token"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["max_characters"] == 8
+
+    def test_update_profile_max_characters_invalid(self, client, mock_user):
+        """Test updating max_characters with invalid value."""
+        update_data = {"max_characters": 15}  # Exceeds limit of 10
+
+        with patch("app.routers.auth.get_current_user", return_value=mock_user):
+            response = client.put(
+                "/api/v1/auth/me",
+                json=update_data,
+                headers={"Authorization": "Bearer valid_token"},
+            )
+
+        assert response.status_code == 422  # Validation error
+        data = response.json()
+        assert "less than or equal to 10" in str(data["detail"])
+
+    def test_update_profile_username_invalid_format(self, client, mock_user):
+        """Test updating username with invalid format."""
+        update_data = {"username": "invalid-username!"}  # Contains invalid characters
+
+        with patch("app.routers.auth.get_current_user", return_value=mock_user):
+            response = client.put(
+                "/api/v1/auth/me",
+                json=update_data,
+                headers={"Authorization": "Bearer valid_token"},
+            )
+
+        assert response.status_code == 422  # Validation error
+        data = response.json()
+        assert "alphanumeric characters and underscores" in str(data["detail"])
+
+    def test_update_profile_username_too_short(self, client, mock_user):
+        """Test updating username that's too short."""
+        update_data = {"username": "ab"}  # Less than 3 characters
+
+        with patch("app.routers.auth.get_current_user", return_value=mock_user):
+            response = client.put(
+                "/api/v1/auth/me",
+                json=update_data,
+                headers={"Authorization": "Bearer valid_token"},
+            )
+
+        assert response.status_code == 422  # Validation error
+        data = response.json()
+        assert "at least 3 characters" in str(data["detail"])
+
+    def test_update_profile_multiple_fields(self, client, mock_user):
+        """Test updating multiple profile fields at once."""
+        update_data = {
+            "username": "newuser",
+            "email": "newuser@example.com",
+            "max_characters": 7,
+            "chat_settings": {"notifications": True, "sound": False},
+            "privacy_settings": {"show_online": False},
+        }
+
+        with (
+            patch("app.routers.auth.get_current_user", return_value=mock_user),
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+        ):
+            mock_session = Mock()
+            mock_get_session.return_value = mock_session
+            mock_auth_utils.get_user_by_username = AsyncMock(return_value=None)
+            mock_auth_utils.get_user_by_email = AsyncMock(return_value=None)
+
+            response = client.put(
+                "/api/v1/auth/me",
+                json=update_data,
+                headers={"Authorization": "Bearer valid_token"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["username"] == "newuser"
+        assert data["email"] == "newuser@example.com"
+        assert data["max_characters"] == 7
+        assert data["chat_settings"] == {"notifications": True, "sound": False}
+        assert data["privacy_settings"] == {"show_online": False}
+
 
 class TestAuthenticationFlow:
     """Integration tests for complete authentication flow."""
@@ -507,10 +778,11 @@ class TestAuthenticationFlow:
     def test_complete_auth_flow(self, client):
         """Test complete authentication flow from registration to logout."""
         # Mock all auth operations
-        with patch("app.routers.auth.get_session") as mock_get_session, patch(
-            "app.routers.auth.auth_utils"
-        ) as mock_auth_utils, patch("app.routers.auth.security") as mock_security:
-
+        with (
+            patch("app.routers.auth.get_session") as mock_get_session,
+            patch("app.routers.auth.auth_utils") as mock_auth_utils,
+            patch("app.routers.auth.security") as mock_security,
+        ):
             mock_session = Mock()
             mock_get_session.return_value = mock_session
 

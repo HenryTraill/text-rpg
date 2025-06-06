@@ -1,9 +1,13 @@
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, JSON
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from uuid import UUID, uuid4
 import enum
+from app.core.datetime_utils import utc_now
+
+if TYPE_CHECKING:
+    from .character import Character
 
 
 class UserRole(str, enum.Enum):
@@ -47,8 +51,8 @@ class User(SQLModel, table=True):
     is_verified: bool = Field(default=False)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now())
-    updated_at: datetime = Field(default_factory=lambda: datetime.now())
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
     last_login: Optional[datetime] = Field(default=None)
 
     # Account limits and preferences
@@ -92,9 +96,9 @@ class UserSession(SQLModel, table=True):
     is_active: bool = Field(default=True)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now())
+    created_at: datetime = Field(default_factory=utc_now)
     expires_at: datetime
-    last_activity: datetime = Field(default_factory=lambda: datetime.now())
+    last_activity: datetime = Field(default_factory=utc_now)
 
     # Relationships
     user: User = Relationship(back_populates="sessions")

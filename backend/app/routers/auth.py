@@ -9,7 +9,8 @@ This module provides:
 - User profile management
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+from app.core.datetime_utils import utc_now, from_timestamp_utc
 from typing import List, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -27,6 +28,7 @@ from ..schemas.auth import (
     RefreshTokenRequest,
     UserResponse,
     UserProfileResponse,
+    UserProfileUpdateRequest,
     PasswordChangeRequest,
     UserSessionResponse,
     LogoutRequest,
@@ -167,8 +169,8 @@ async def register_user(
         )
 
         session.add(new_user)
-        session.commit()
-        session.refresh(new_user)
+        await session.commit()
+        await session.refresh(new_user)
 
         # Generate tokens
         access_token_expires = timedelta(minutes=15)
@@ -188,15 +190,15 @@ async def register_user(
             session=session,
             user_id=new_user.id,
             token_jti=access_payload["jti"],
-            expires_at=datetime.fromtimestamp(access_payload["exp"], tz=timezone.utc),
+            expires_at=from_timestamp_utc(access_payload["exp"]),
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
 
         # Update last login
-        new_user.last_login = datetime.now()
+        new_user.last_login = utc_now()
         session.add(new_user)
-        session.commit()
+        await session.commit()
 
         logger.info(f"New user registered: {new_user.username}")
 
@@ -215,7 +217,7 @@ async def register_user(
         raise
     except Exception as e:
         logger.error(f"Registration error: {e}")
-        session.rollback()
+        await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed",
@@ -277,17 +279,17 @@ async def login_user(
             session=session,
             user_id=user.id,
             token_jti=access_payload["jti"],
-            expires_at=datetime.fromtimestamp(access_payload["exp"], tz=timezone.utc),
+            expires_at=from_timestamp_utc(access_payload["exp"]),
             device_info=login_data.device_info,
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
 
         # Update last login
-        user.last_login = datetime.now()
+        user.last_login = utc_now()
         user.login_attempts = 0  # Reset failed attempts
         session.add(user)
-        session.commit()
+        await session.commit()
 
         logger.info(f"User logged in: {user.username}")
 
@@ -369,7 +371,7 @@ async def refresh_token(
             session=session,
             user_id=user.id,
             token_jti=access_payload["jti"],
-            expires_at=datetime.fromtimestamp(access_payload["exp"], tz=timezone.utc),
+            expires_at=from_timestamp_utc(access_payload["exp"]),
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
@@ -418,9 +420,10 @@ async def logout_user(
         if logout_data.revoke_all_sessions:
             # Revoke all user sessions
             statement = select(UserSession).where(
-                UserSession.user_id == current_user.id, UserSession.is_active == True
+                UserSession.user_id == current_user.id, UserSession.is_active
             )
-            sessions = session.exec(statement).all()
+            result = await session.execute(statement)
+            sessions = result.scalars().all()
 
             for user_session in sessions:
                 user_session.is_active = False
@@ -432,13 +435,13 @@ async def logout_user(
             await auth_utils.revoke_user_session(session, token_jti)
             logger.info(f"Session revoked for user: {current_user.username}")
 
-        session.commit()
+        await session.commit()
 
         return {"message": "Logout successful", "success": True}
 
     except Exception as e:
         logger.error(f"Logout error: {e}")
-        session.rollback()
+        await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Logout failed"
         )
@@ -460,7 +463,7 @@ async def get_current_user_profile(current_user: User = Depends(get_current_user
 
 @router.put("/me", response_model=UserProfileResponse)
 async def update_user_profile(
-    profile_data: dict,
+    profile_data: UserProfileUpdateRequest,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
@@ -476,25 +479,48 @@ async def update_user_profile(
         Updated user profile
     """
     try:
-        # Update allowed fields
-        allowed_fields = {"chat_settings", "privacy_settings"}
+        # Check if username is being changed and if it's already taken
+        if profile_data.username and profile_data.username != current_user.username:
+            existing_username = await auth_utils.get_user_by_username(
+                session, profile_data.username
+            )
+            if existing_username:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username already taken",
+                )
 
-        for field, value in profile_data.items():
-            if field in allowed_fields:
-                setattr(current_user, field, value)
+        # Check if email is being changed and if it's already taken
+        if profile_data.email and profile_data.email != current_user.email:
+            existing_email = await auth_utils.get_user_by_email(
+                session, profile_data.email
+            )
+            if existing_email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already in use by another account",
+                )
 
-        current_user.updated_at = datetime.now()
+        # Update fields that were provided (not None)
+        update_data = profile_data.dict(exclude_unset=True, exclude_none=True)
+
+        for field, value in update_data.items():
+            setattr(current_user, field, value)
+
+        current_user.updated_at = utc_now()
         session.add(current_user)
-        session.commit()
-        session.refresh(current_user)
+        await session.commit()
+        await session.refresh(current_user)
 
         logger.info(f"Profile updated for user: {current_user.username}")
 
         return UserProfileResponse.from_orm(current_user)
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Profile update error: {e}")
-        session.rollback()
+        await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Profile update failed",
@@ -532,9 +558,9 @@ async def change_password(
         current_user.hashed_password = auth_utils.get_password_hash(
             password_data.new_password
         )
-        current_user.updated_at = datetime.now()
+        current_user.updated_at = utc_now()
         session.add(current_user)
-        session.commit()
+        await session.commit()
 
         logger.info(f"Password changed for user: {current_user.username}")
 
@@ -544,7 +570,7 @@ async def change_password(
         raise
     except Exception as e:
         logger.error(f"Password change error: {e}")
-        session.rollback()
+        await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Password change failed",
@@ -568,11 +594,12 @@ async def get_user_sessions(
     """
     statement = (
         select(UserSession)
-        .where(UserSession.user_id == current_user.id, UserSession.is_active == True)
+        .where(UserSession.user_id == current_user.id, UserSession.is_active)
         .order_by(UserSession.created_at.desc())
     )
 
-    sessions = session.exec(statement).all()
+    result = await session.execute(statement)
+    sessions = result.scalars().all()
     return [UserSessionResponse.from_orm(s) for s in sessions]
 
 
@@ -598,9 +625,10 @@ async def revoke_user_session(
         statement = select(UserSession).where(
             UserSession.id == session_id,
             UserSession.user_id == current_user.id,
-            UserSession.is_active == True,
+            UserSession.is_active,
         )
-        user_session = session.exec(statement).first()
+        result = await session.execute(statement)
+        user_session = result.scalars().first()
 
         if not user_session:
             raise HTTPException(
@@ -609,7 +637,7 @@ async def revoke_user_session(
 
         user_session.is_active = False
         session.add(user_session)
-        session.commit()
+        await session.commit()
 
         logger.info(f"Session {session_id} revoked for user: {current_user.username}")
 
@@ -619,7 +647,7 @@ async def revoke_user_session(
         raise
     except Exception as e:
         logger.error(f"Session revocation error: {e}")
-        session.rollback()
+        await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Session revocation failed",

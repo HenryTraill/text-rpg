@@ -108,31 +108,37 @@ class AuthUtils:
 
     @staticmethod
     async def get_user_by_username(session: Session, username: str) -> Optional[User]:
-        """Get user by username."""
-        statement = select(User).where(User.username == username)
-        result = session.exec(statement)
-        return result.first()
+        """Get user by username (case-insensitive)."""
+        statement = select(User).where(User.username.ilike(username))
+        result = await session.execute(statement)
+        return result.scalars().first()
 
     @staticmethod
     async def get_user_by_email(session: Session, email: str) -> Optional[User]:
-        """Get user by email."""
-        statement = select(User).where(User.email == email)
-        result = session.exec(statement)
-        return result.first()
+        """Get user by email (case-insensitive)."""
+        statement = select(User).where(User.email.ilike(email))
+        result = await session.execute(statement)
+        return result.scalars().first()
 
     @staticmethod
     async def get_user_by_id(session: Session, user_id: UUID) -> Optional[User]:
         """Get user by ID."""
         statement = select(User).where(User.id == user_id)
-        result = session.exec(statement)
-        return result.first()
+        result = await session.execute(statement)
+        return result.scalars().first()
 
     @staticmethod
     async def authenticate_user(
         session: Session, username: str, password: str
     ) -> Optional[User]:
-        """Authenticate user with username and password."""
+        """Authenticate user with username/email and password."""
+        # Try to find user by username first
         user = await AuthUtils.get_user_by_username(session, username)
+
+        # If not found, try by email (case-insensitive)
+        if not user:
+            user = await AuthUtils.get_user_by_email(session, username)
+
         if not user:
             return None
         if not AuthUtils.verify_password(password, user.hashed_password):
@@ -159,21 +165,21 @@ class AuthUtils:
             user_agent=user_agent,
         )
         session.add(user_session)
-        session.commit()
-        session.refresh(user_session)
+        await session.commit()
+        await session.refresh(user_session)
         return user_session
 
     @staticmethod
     async def revoke_user_session(session: Session, token_jti: str) -> bool:
         """Revoke a user session by token JTI."""
         statement = select(UserSession).where(UserSession.token_jti == token_jti)
-        result = session.exec(statement)
-        user_session = result.first()
+        result = await session.execute(statement)
+        user_session = result.scalars().first()
 
         if user_session:
             user_session.is_active = False
             session.add(user_session)
-            session.commit()
+            await session.commit()
             return True
         return False
 
@@ -181,10 +187,10 @@ class AuthUtils:
     async def is_token_revoked(session: Session, token_jti: str) -> bool:
         """Check if a token is revoked."""
         statement = select(UserSession).where(
-            UserSession.token_jti == token_jti, UserSession.is_active == True
+            UserSession.token_jti == token_jti, UserSession.is_active
         )
-        result = session.exec(statement)
-        return result.first() is None
+        result = await session.execute(statement)
+        return result.scalars().first() is None
 
 
 # Global auth utilities instance

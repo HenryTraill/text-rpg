@@ -65,6 +65,16 @@ class UserLoginRequest(BaseModel):
     )
     device_info: Optional[str] = Field(default=None, description="Device information")
 
+    class Config:
+        schema_extra = {
+            "example": {
+                "username": "player123",  # Can also use email: "player@example.com"
+                "password": "SecurePassword123",
+                "remember_me": True,
+                "device_info": "Mobile App v1.0",
+            }
+        }
+
 
 class TokenResponse(BaseModel):
     """Token response schema."""
@@ -139,6 +149,45 @@ class UserProfileResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UserProfileUpdateRequest(BaseModel):
+    """User profile update request schema."""
+
+    username: Optional[str] = Field(
+        None, min_length=3, max_length=30, description="New username (3-30 characters)"
+    )
+    email: Optional[EmailStr] = Field(None, description="New email address")
+    max_characters: Optional[int] = Field(
+        None, ge=1, le=10, description="Maximum number of characters (1-10)"
+    )
+    chat_settings: Optional[Dict[str, Any]] = Field(
+        None, description="Chat preferences"
+    )
+    privacy_settings: Optional[Dict[str, Any]] = Field(
+        None, description="Privacy preferences"
+    )
+
+    @validator("username")
+    def validate_username(cls, v):
+        if v is not None:
+            if not v.replace("_", "").isalnum():
+                raise ValueError(
+                    "Username must contain only alphanumeric characters and underscores"
+                )
+            return v.lower()
+        return v
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "username": "newusername",
+                "email": "newemail@example.com",
+                "max_characters": 3,
+                "chat_settings": {"notifications": True, "sound": False},
+                "privacy_settings": {"show_online": True, "allow_messages": True},
+            }
+        }
 
 
 class PasswordChangeRequest(BaseModel):

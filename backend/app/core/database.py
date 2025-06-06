@@ -1,6 +1,7 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.orm import sessionmaker
 from typing import AsyncGenerator
 import logging
 
@@ -70,15 +71,16 @@ async def create_db_and_tables():
         # Import all models to ensure they're registered with SQLModel.metadata
         # This will be updated when models are created
         try:
-            from app.models.user import User
-            from app.models.character import Character
-            from app.models.skill import Skill, CharacterSkill
-            from app.models.inventory import Item, InventorySlot
-            from app.models.world import Zone, Location
-            from app.models.social import Guild, GuildMember, Party, Friendship
-            from app.models.chat import ChatChannel, Message
-            from app.models.combat import CombatSession, CombatAction
-            from app.models.economy import Trade, Auction, NPCMerchant
+            # Import all models to ensure they're registered with SQLModel.metadata
+            from app.models.user import User  # noqa: F401
+            from app.models.character import Character  # noqa: F401
+            from app.models.skill import Skill, CharacterSkill  # noqa: F401
+            from app.models.inventory import Item, InventorySlot  # noqa: F401
+            from app.models.world import Zone, Location  # noqa: F401
+            from app.models.social import Guild, GuildMember, Party, Friendship  # noqa: F401
+            from app.models.chat import ChatChannel, Message  # noqa: F401
+            from app.models.combat import CombatSession, CombatAction  # noqa: F401
+            from app.models.economy import Trade, Auction, NPCMerchant  # noqa: F401
         except ImportError:
             # Models not created yet
             pass

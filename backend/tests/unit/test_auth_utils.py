@@ -100,7 +100,8 @@ class TestAuthUtils:
         """Test JWT token verification with expired token."""
         user_data = {"sub": str(uuid4())}
         expired_token = AuthUtils.create_access_token(
-            user_data, expires_delta=timedelta(seconds=-1)  # Already expired
+            user_data,
+            expires_delta=timedelta(seconds=-1),  # Already expired
         )
 
         from fastapi import HTTPException

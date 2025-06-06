@@ -191,10 +191,10 @@ def mock_health_checker():
 @pytest.fixture(autouse=True)
 def mock_database_dependencies():
     """Automatically mock database dependencies for all tests."""
-    with patch("app.core.database.get_session") as mock_get_session, patch(
-        "app.core.database.get_engine"
-    ) as mock_get_engine:
-
+    with (
+        patch("app.core.database.get_session") as mock_get_session,
+        patch("app.core.database.get_engine") as mock_get_engine,
+    ):
         # Mock session
         mock_session = Mock()
         mock_session.add = Mock()

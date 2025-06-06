@@ -222,14 +222,16 @@ class TestRateLimitMiddleware:
             return Response("OK", status_code=200)
 
         # Mock rate limit check to allow request
-        with patch.object(
-            rate_limiter, "_get_client_info", return_value=("user:test", 100)
-        ), patch.object(
-            rate_limiter,
-            "_check_rate_limit",
-            return_value=(True, 99, int(time.time()) + 60),
+        with (
+            patch.object(
+                rate_limiter, "_get_client_info", return_value=("user:test", 100)
+            ),
+            patch.object(
+                rate_limiter,
+                "_check_rate_limit",
+                return_value=(True, 99, int(time.time()) + 60),
+            ),
         ):
-
             response = await rate_limiter.dispatch(mock_request, call_next)
 
         assert response.status_code == 200
@@ -244,12 +246,14 @@ class TestRateLimitMiddleware:
         """Test request processing when rate limit is exceeded."""
         # Mock rate limit check to deny request
         reset_time = int(time.time()) + 60
-        with patch.object(
-            rate_limiter, "_get_client_info", return_value=("user:test", 100)
-        ), patch.object(
-            rate_limiter, "_check_rate_limit", return_value=(False, 0, reset_time)
+        with (
+            patch.object(
+                rate_limiter, "_get_client_info", return_value=("user:test", 100)
+            ),
+            patch.object(
+                rate_limiter, "_check_rate_limit", return_value=(False, 0, reset_time)
+            ),
         ):
-
             with pytest.raises(HTTPException) as exc_info:
 
                 async def call_next(request):
@@ -405,12 +409,14 @@ class TestRateLimitMiddlewareIntegration:
             current_time = int(time.time())
             reset_time = current_time + 60
 
-            with patch.object(
-                middleware, "_get_client_info", return_value=("ip:127.0.0.1", 20)
-            ), patch.object(
-                middleware, "_check_rate_limit", return_value=(True, 19, reset_time)
+            with (
+                patch.object(
+                    middleware, "_get_client_info", return_value=("ip:127.0.0.1", 20)
+                ),
+                patch.object(
+                    middleware, "_check_rate_limit", return_value=(True, 19, reset_time)
+                ),
             ):
-
                 response = await middleware.dispatch(mock_request, call_next)
 
             # Verify all required headers are present and correctly formatted

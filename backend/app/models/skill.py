@@ -1,9 +1,13 @@
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, JSON
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from uuid import UUID, uuid4
 import enum
+from app.core.datetime_utils import utc_now
+
+if TYPE_CHECKING:
+    from .character import Character
 from .schemas import SkillBonuses, SkillAbilities
 
 
@@ -53,8 +57,8 @@ class Skill(SQLModel, table=True):
     is_active: bool = Field(default=True)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now())
-    updated_at: datetime = Field(default_factory=lambda: datetime.now())
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
     character_skills: List["CharacterSkill"] = Relationship(back_populates="skill")
@@ -88,8 +92,8 @@ class CharacterSkill(SQLModel, table=True):
     is_favorite: bool = Field(default=False)  # Player marked as favorite skill
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now())
-    updated_at: datetime = Field(default_factory=lambda: datetime.now())
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
     character: "Character" = Relationship(back_populates="skills")

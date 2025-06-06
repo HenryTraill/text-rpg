@@ -185,23 +185,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             "query_params": dict(request.query_params),
         }
 
-        # Capture request body for POST/PUT/PATCH requests
+        # Note: We don't capture request body here to avoid consuming it
+        # The body can only be read once in FastAPI, and we need to leave it
+        # for the actual endpoint handlers to process
         if request.method in ["POST", "PUT", "PATCH"]:
-            try:
-                body = await request.body()
-                if body:
-                    # Try to parse as JSON
-                    try:
-                        json_body = json.loads(body.decode("utf-8"))
-                        data["body"] = self._filter_sensitive_data(json_body)
-                    except (json.JSONDecodeError, UnicodeDecodeError):
-                        # If not JSON, store as string (truncated if too long)
-                        body_str = body.decode("utf-8", errors="ignore")
-                        if len(body_str) > 1000:
-                            body_str = body_str[:1000] + "... (truncated)"
-                        data["body"] = body_str
-            except Exception as e:
-                data["body_error"] = str(e)
+            data["body"] = "(body capture skipped to avoid consumption)"
 
         return data
 

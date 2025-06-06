@@ -216,10 +216,11 @@ class TestHealthChecker:
         mock_disk.free = 100 * 1024**3  # 100GB
         mock_disk.total = 250 * 1024**3  # 250GB
 
-        with patch("psutil.cpu_percent", return_value=30.0), patch(
-            "psutil.virtual_memory", return_value=mock_memory
-        ), patch("psutil.disk_usage", return_value=mock_disk):
-
+        with (
+            patch("psutil.cpu_percent", return_value=30.0),
+            patch("psutil.virtual_memory", return_value=mock_memory),
+            patch("psutil.disk_usage", return_value=mock_disk),
+        ):
             result = await mock_health_checker._check_system_resources()
 
         assert result["status"] == "healthy"
@@ -240,10 +241,11 @@ class TestHealthChecker:
         mock_disk.free = 50 * 1024**3
         mock_disk.total = 250 * 1024**3
 
-        with patch("psutil.cpu_percent", return_value=30.0), patch(
-            "psutil.virtual_memory", return_value=mock_memory
-        ), patch("psutil.disk_usage", return_value=mock_disk):
-
+        with (
+            patch("psutil.cpu_percent", return_value=30.0),
+            patch("psutil.virtual_memory", return_value=mock_memory),
+            patch("psutil.disk_usage", return_value=mock_disk),
+        ):
             result = await mock_health_checker._check_system_resources()
 
         assert result["status"] == "warning"
@@ -262,10 +264,11 @@ class TestHealthChecker:
         mock_disk.free = 50 * 1024**3
         mock_disk.total = 250 * 1024**3
 
-        with patch("psutil.cpu_percent", return_value=30.0), patch(
-            "psutil.virtual_memory", return_value=mock_memory
-        ), patch("psutil.disk_usage", return_value=mock_disk):
-
+        with (
+            patch("psutil.cpu_percent", return_value=30.0),
+            patch("psutil.virtual_memory", return_value=mock_memory),
+            patch("psutil.disk_usage", return_value=mock_disk),
+        ):
             result = await mock_health_checker._check_system_resources()
 
         assert result["status"] == "error"

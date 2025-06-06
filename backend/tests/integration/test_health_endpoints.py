@@ -57,7 +57,6 @@ class TestHealthEndpoints:
             new_callable=AsyncMock,
             return_value=mock_health_status,
         ):
-
             response = client.get("/health")
 
         assert response.status_code == 200
@@ -96,7 +95,6 @@ class TestHealthEndpoints:
             new_callable=AsyncMock,
             return_value=mock_health_status,
         ):
-
             response = client.get("/health")
 
         assert response.status_code == 200  # Still returns 200 for degraded
@@ -124,7 +122,6 @@ class TestHealthEndpoints:
             new_callable=AsyncMock,
             return_value=mock_health_status,
         ):
-
             response = client.get("/health")
 
         assert response.status_code == 503  # Service unavailable for unhealthy
@@ -166,7 +163,6 @@ class TestHealthEndpoints:
             new_callable=AsyncMock,
             return_value=mock_health_status,
         ):
-
             response = client.get("/health?details=true")
 
         assert response.status_code == 200
@@ -182,7 +178,6 @@ class TestHealthEndpoints:
             new_callable=AsyncMock,
             side_effect=Exception("Health check failed"),
         ):
-
             response = client.get("/health")
 
         assert response.status_code == 500
@@ -197,7 +192,6 @@ class TestHealthEndpoints:
             new_callable=AsyncMock,
             return_value=True,
         ):
-
             response = client.get("/ready")
 
         assert response.status_code == 200
@@ -213,7 +207,6 @@ class TestHealthEndpoints:
             new_callable=AsyncMock,
             return_value=False,
         ):
-
             response = client.get("/ready")
 
         assert response.status_code == 503
@@ -228,7 +221,6 @@ class TestHealthEndpoints:
             new_callable=AsyncMock,
             side_effect=Exception("Readiness check failed"),
         ):
-
             response = client.get("/ready")
 
         assert response.status_code == 503
@@ -244,7 +236,6 @@ class TestHealthEndpoints:
             new_callable=AsyncMock,
             return_value=True,
         ):
-
             response = client.get("/alive")
 
         assert response.status_code == 200
@@ -261,7 +252,6 @@ class TestHealthEndpoints:
             new_callable=AsyncMock,
             side_effect=Exception("Liveness check failed"),
         ):
-
             response = client.get("/alive")
 
         # Should still return alive status even on exception
@@ -331,9 +321,9 @@ class TestHealthEndpointIntegration:
                 }
 
                 response = client.get("/health")
-                assert (
-                    response.status_code == expected_code
-                ), f"Wrong status code for {health_status}: expected {expected_code}, got {response.status_code}"
+                assert response.status_code == expected_code, (
+                    f"Wrong status code for {health_status}: expected {expected_code}, got {response.status_code}"
+                )
 
     def test_ready_vs_alive_behavior(self, client):
         """Test difference between ready and alive endpoints."""

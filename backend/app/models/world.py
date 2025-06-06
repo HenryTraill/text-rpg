@@ -1,8 +1,12 @@
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, JSON
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from uuid import UUID, uuid4
+from app.core.datetime_utils import utc_now
+
+if TYPE_CHECKING:
+    from .character import Character, CharacterLocation
 
 
 class Zone(SQLModel, table=True):
@@ -38,8 +42,8 @@ class Zone(SQLModel, table=True):
     respawn_y: float = Field(default=500.0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now())
-    updated_at: datetime = Field(default_factory=lambda: datetime.now())
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
     characters: List["Character"] = Relationship(back_populates="current_zone")
@@ -75,8 +79,8 @@ class Location(SQLModel, table=True):
     is_active: bool = Field(default=True)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now())
-    updated_at: datetime = Field(default_factory=lambda: datetime.now())
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
     zone: Zone = Relationship()
@@ -106,7 +110,7 @@ class WorldEvent(SQLModel, table=True):
     event_data: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now())
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class ZoneInstance(SQLModel, table=True):
@@ -129,7 +133,7 @@ class ZoneInstance(SQLModel, table=True):
     is_active: bool = Field(default=True)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now())
+    created_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
     zone: Zone = Relationship()

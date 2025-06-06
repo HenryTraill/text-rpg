@@ -123,7 +123,7 @@ async def root():
 
 @app.get("/health")
 async def health_check(
-    details: bool = Query(False, description="Include detailed health metrics")
+    details: bool = Query(False, description="Include detailed health metrics"),
 ):
     """
     Comprehensive health check endpoint for monitoring and load balancers.

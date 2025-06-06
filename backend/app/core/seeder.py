@@ -211,7 +211,7 @@ async def seed_database():
         try:
             # Seed in order of dependencies
             await seed_skills(session)
-            starter_zone = await seed_starter_zone(session)
+            await seed_starter_zone(session)
             await seed_starter_items(session)
             await seed_chat_channels(session)
 

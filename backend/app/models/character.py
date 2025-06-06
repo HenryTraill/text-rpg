@@ -1,8 +1,17 @@
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, JSON
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from uuid import UUID, uuid4
+from app.core.datetime_utils import utc_now
+
+if TYPE_CHECKING:
+    from .user import User
+    from .world import Zone
+    from .skill import CharacterSkill
+    from .inventory import InventorySlot
+    from .social import GuildMember, PartyMember
+    from .combat import CombatParticipant
 
 
 class Character(SQLModel, table=True):
@@ -53,8 +62,8 @@ class Character(SQLModel, table=True):
     available_skill_points: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now())
-    updated_at: datetime = Field(default_factory=lambda: datetime.now())
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
     last_login: Optional[datetime] = Field(default=None)
     last_logout: Optional[datetime] = Field(default=None)
 
@@ -104,7 +113,7 @@ class CharacterLocation(SQLModel, table=True):
     previous_y: Optional[float] = Field(default=None)
 
     # Timestamps
-    timestamp: datetime = Field(default_factory=lambda: datetime.now())
+    timestamp: datetime = Field(default_factory=utc_now)
 
     # Relationships
     character: Character = Relationship(back_populates="location_history")
