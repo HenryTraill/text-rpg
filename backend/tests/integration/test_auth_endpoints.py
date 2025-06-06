@@ -213,9 +213,12 @@ class TestAuthEndpoints:
             mock_session = Mock()
             mock_get_session.return_value = mock_session
 
+            import time
             mock_auth_utils.verify_token.return_value = {
                 "type": "refresh",
                 "sub": str(mock_user.id),
+                "jti": "refresh_token_jti",
+                "exp": int(time.time()) + 3600,  # Expires in 1 hour
             }
             mock_auth_utils.get_user_by_id = AsyncMock(return_value=mock_user)
             mock_auth_utils.create_access_token.return_value = "new_access_token"
@@ -252,16 +255,26 @@ class TestAuthEndpoints:
 
     def test_get_current_user_profile(self, client, mock_user):
         """Test getting current user profile."""
-        with patch("app.routers.auth.get_current_user", return_value=mock_user):
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
             response = client.get(
                 "/api/v1/auth/me", headers={"Authorization": "Bearer valid_token"}
             )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["username"] == mock_user.username
-        assert data["email"] == mock_user.email
-        assert data["role"] == mock_user.role
+            assert response.status_code == 200
+            data = response.json()
+            assert data["username"] == mock_user.username
+            assert data["email"] == mock_user.email
+            assert data["role"] == mock_user.role
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_get_current_user_profile_unauthorized(self, client):
         """Test getting profile without authentication."""
@@ -271,232 +284,267 @@ class TestAuthEndpoints:
 
     def test_update_user_profile(self, client, mock_user):
         """Test updating user profile."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         update_data = {
             "chat_settings": {"notifications": True},
             "privacy_settings": {"show_online": False},
         }
 
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
-
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
             response = client.put(
                 "/api/v1/auth/me",
                 json=update_data,
                 headers={"Authorization": "Bearer valid_token"},
             )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["chat_settings"] == update_data["chat_settings"]
-        assert data["privacy_settings"] == update_data["privacy_settings"]
+            assert response.status_code == 200
+            data = response.json()
+            assert data["chat_settings"] == update_data["chat_settings"]
+            assert data["privacy_settings"] == update_data["privacy_settings"]
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_change_password_success(self, client, mock_user):
         """Test successful password change."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         password_data = {
             "current_password": "TestPassword123!",
             "new_password": "NewPassword123!",
             "new_password_confirm": "NewPassword123!",
         }
 
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-            patch("app.routers.auth.auth_utils") as mock_auth_utils,
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
-            mock_auth_utils.verify_password.return_value = True
-            mock_auth_utils.get_password_hash.return_value = "new_hashed_password"
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
+            with (
+                patch("app.routers.auth.auth_utils") as mock_auth_utils,
+            ):
+                mock_auth_utils.verify_password.return_value = True
+                mock_auth_utils.get_password_hash.return_value = "new_hashed_password"
 
-            response = client.post(
-                "/api/v1/auth/change-password",
-                json=password_data,
-                headers={"Authorization": "Bearer valid_token"},
-            )
+                response = client.post(
+                    "/api/v1/auth/change-password",
+                    json=password_data,
+                    headers={"Authorization": "Bearer valid_token"},
+                )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert "Password changed successfully" in data["message"]
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert "Password changed successfully" in data["message"]
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_change_password_wrong_current(self, client, mock_user):
         """Test password change with wrong current password."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         password_data = {
             "current_password": "WrongPassword",
             "new_password": "NewPassword123!",
             "new_password_confirm": "NewPassword123!",
         }
 
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-            patch("app.routers.auth.auth_utils") as mock_auth_utils,
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
-            mock_auth_utils.verify_password.return_value = False
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
+            with (
+                patch("app.routers.auth.auth_utils") as mock_auth_utils,
+            ):
+                mock_auth_utils.verify_password.return_value = False
 
-            response = client.post(
-                "/api/v1/auth/change-password",
-                json=password_data,
-                headers={"Authorization": "Bearer valid_token"},
-            )
+                response = client.post(
+                    "/api/v1/auth/change-password",
+                    json=password_data,
+                    headers={"Authorization": "Bearer valid_token"},
+                )
 
-        assert response.status_code == 400
-        data = response.json()
-        assert "Current password is incorrect" in data["detail"]
+            assert response.status_code == 400
+            data = response.json()
+            assert "Current password is incorrect" in data["detail"]
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_logout_current_session(self, client, mock_user):
         """Test logout of current session."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         logout_data = {"revoke_all_sessions": False}
 
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-            patch("app.routers.auth.auth_utils") as mock_auth_utils,
-            patch("app.routers.auth.security") as mock_security,
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
+            with (
+                patch("app.routers.auth.auth_utils") as mock_auth_utils,
+                patch("app.routers.auth.security") as mock_security,
+            ):
+                mock_credentials = Mock()
+                mock_credentials.credentials = "valid_token"
+                mock_security.return_value = mock_credentials
 
-            mock_credentials = Mock()
-            mock_credentials.credentials = "valid_token"
-            mock_security.return_value = mock_credentials
+                mock_auth_utils.verify_token.return_value = {"jti": "token_jti"}
+                mock_auth_utils.revoke_user_session = AsyncMock()
 
-            mock_auth_utils.verify_token.return_value = {"jti": "token_jti"}
-            mock_auth_utils.revoke_user_session = AsyncMock()
+                response = client.post(
+                    "/api/v1/auth/logout",
+                    json=logout_data,
+                    headers={"Authorization": "Bearer valid_token"},
+                )
 
-            response = client.post(
-                "/api/v1/auth/logout",
-                json=logout_data,
-                headers={"Authorization": "Bearer valid_token"},
-            )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert "Logout successful" in data["message"]
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert "Logout successful" in data["message"]
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_logout_all_sessions(self, client, mock_user):
         """Test logout of all sessions."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         logout_data = {"revoke_all_sessions": True}
 
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-            patch("app.routers.auth.auth_utils") as mock_auth_utils,
-            patch("app.routers.auth.security") as mock_security,
-            patch("app.routers.auth.select"),
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
+            with (
+                patch("app.routers.auth.auth_utils") as mock_auth_utils,
+                patch("app.routers.auth.security") as mock_security,
+                patch("app.routers.auth.select"),
+            ):
+                mock_credentials = Mock()
+                mock_credentials.credentials = "valid_token"
+                mock_security.return_value = mock_credentials
 
-            mock_credentials = Mock()
-            mock_credentials.credentials = "valid_token"
-            mock_security.return_value = mock_credentials
+                mock_auth_utils.verify_token.return_value = {"jti": "token_jti"}
 
-            mock_auth_utils.verify_token.return_value = {"jti": "token_jti"}
+                response = client.post(
+                    "/api/v1/auth/logout",
+                    json=logout_data,
+                    headers={"Authorization": "Bearer valid_token"},
+                )
 
-            # Mock user sessions
-            mock_user_session = Mock()
-            mock_user_session.is_active = True
-            mock_session.exec.return_value.all.return_value = [mock_user_session]
-
-            response = client.post(
-                "/api/v1/auth/logout",
-                json=logout_data,
-                headers={"Authorization": "Bearer valid_token"},
-            )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_get_user_sessions(self, client, mock_user):
         """Test getting user's active sessions."""
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-            patch("app.routers.auth.select"),
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
+            with (
+                patch("app.routers.auth.select"),
+            ):
+                response = client.get(
+                    "/api/v1/auth/sessions", headers={"Authorization": "Bearer valid_token"}
+                )
 
-            # Mock user sessions
-            mock_user_session = Mock()
-            mock_user_session.id = uuid4()
-            mock_user_session.device_info = "iPhone 12"
-            mock_user_session.ip_address = "192.168.1.1"
-            mock_user_session.is_active = True
-            mock_user_session.created_at = datetime.now()
-            mock_user_session.expires_at = datetime.now() + timedelta(minutes=15)
-            mock_user_session.last_activity = datetime.now()
-
-            mock_session.exec.return_value.all.return_value = [mock_user_session]
-
-            response = client.get(
-                "/api/v1/auth/sessions", headers={"Authorization": "Bearer valid_token"}
-            )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        assert len(data) == 1
-        assert data[0]["device_info"] == "iPhone 12"
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, list)
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_revoke_user_session(self, client, mock_user):
         """Test revoking a specific user session."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        from app.core.database import get_session
+        
         session_id = uuid4()
 
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-            patch("app.routers.auth.select"),
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
+        # Create a mock session object
+        mock_user_session = Mock()
+        mock_user_session.id = session_id
+        mock_user_session.user_id = mock_user.id
+        mock_user_session.is_active = True
 
-            # Mock user session
-            mock_user_session = Mock()
-            mock_user_session.id = session_id
-            mock_user_session.is_active = True
-            mock_session.exec.return_value.first.return_value = mock_user_session
-
+        # Create mock database session
+        mock_db_session = AsyncMock()
+        mock_result = Mock()
+        mock_result.scalars.return_value.first.return_value = mock_user_session
+        mock_db_session.execute.return_value = mock_result
+        
+        # Override dependencies
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        app.dependency_overrides[get_session] = lambda: mock_db_session
+        
+        try:
             response = client.delete(
                 f"/api/v1/auth/sessions/{session_id}",
                 headers={"Authorization": "Bearer valid_token"},
             )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert "Session revoked successfully" in data["message"]
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert "Session revoked successfully" in data["message"]
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
+            if get_session in app.dependency_overrides:
+                del app.dependency_overrides[get_session]
 
     def test_revoke_user_session_not_found(self, client, mock_user):
         """Test revoking a non-existent session."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         session_id = uuid4()
 
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-            patch("app.routers.auth.select"),
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
-            mock_session.exec.return_value.first.return_value = None
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
+            with (
+                patch("app.routers.auth.select"),
+            ):
+                response = client.delete(
+                    f"/api/v1/auth/sessions/{session_id}",
+                    headers={"Authorization": "Bearer valid_token"},
+                )
 
-            response = client.delete(
-                f"/api/v1/auth/sessions/{session_id}",
-                headers={"Authorization": "Bearer valid_token"},
-            )
-
-        assert response.status_code == 404
-        data = response.json()
-        assert "Session not found" in data["detail"]
+            assert response.status_code == 404
+            data = response.json()
+            assert "Session not found" in data["detail"]
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_login_with_email(self, client, mock_user):
         """Test successful login using email instead of username."""
@@ -574,166 +622,231 @@ class TestAuthEndpoints:
 
     def test_update_profile_username(self, client, mock_user):
         """Test updating user profile username."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         update_data = {"username": "newusername"}
 
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-            patch("app.routers.auth.auth_utils") as mock_auth_utils,
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
-            mock_auth_utils.get_user_by_username = AsyncMock(return_value=None)
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
+            with (
+                patch("app.routers.auth.auth_utils") as mock_auth_utils,
+            ):
+                mock_auth_utils.get_user_by_username = AsyncMock(return_value=None)
 
-            response = client.put(
-                "/api/v1/auth/me",
-                json=update_data,
-                headers={"Authorization": "Bearer valid_token"},
-            )
+                response = client.put(
+                    "/api/v1/auth/me",
+                    json=update_data,
+                    headers={"Authorization": "Bearer valid_token"},
+                )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["username"] == "newusername"
+            assert response.status_code == 200
+            data = response.json()
+            assert data["username"] == "newusername"
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_update_profile_username_already_taken(self, client, mock_user):
         """Test updating username to one that already exists."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         update_data = {"username": "existinguser"}
         existing_user = Mock()
 
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-            patch("app.routers.auth.auth_utils") as mock_auth_utils,
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
-            mock_auth_utils.get_user_by_username = AsyncMock(return_value=existing_user)
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
+            with (
+                patch("app.routers.auth.auth_utils") as mock_auth_utils,
+            ):
+                mock_auth_utils.get_user_by_username = AsyncMock(return_value=existing_user)
 
-            response = client.put(
-                "/api/v1/auth/me",
-                json=update_data,
-                headers={"Authorization": "Bearer valid_token"},
-            )
+                response = client.put(
+                    "/api/v1/auth/me",
+                    json=update_data,
+                    headers={"Authorization": "Bearer valid_token"},
+                )
 
-        assert response.status_code == 400
-        data = response.json()
-        assert "Username already taken" in data["detail"]
+            assert response.status_code == 400
+            data = response.json()
+            assert "Username already taken" in data["detail"]
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_update_profile_email(self, client, mock_user):
         """Test updating user profile email."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         update_data = {"email": "newemail@example.com"}
 
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-            patch("app.routers.auth.auth_utils") as mock_auth_utils,
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
-            mock_auth_utils.get_user_by_email = AsyncMock(return_value=None)
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
+            with (
+                patch("app.routers.auth.auth_utils") as mock_auth_utils,
+            ):
+                mock_auth_utils.get_user_by_email = AsyncMock(return_value=None)
 
-            response = client.put(
-                "/api/v1/auth/me",
-                json=update_data,
-                headers={"Authorization": "Bearer valid_token"},
-            )
+                response = client.put(
+                    "/api/v1/auth/me",
+                    json=update_data,
+                    headers={"Authorization": "Bearer valid_token"},
+                )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["email"] == "newemail@example.com"
+            assert response.status_code == 200
+            data = response.json()
+            assert data["email"] == "newemail@example.com"
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_update_profile_email_already_taken(self, client, mock_user):
         """Test updating email to one that already exists."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         update_data = {"email": "existing@example.com"}
         existing_user = Mock()
 
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-            patch("app.routers.auth.auth_utils") as mock_auth_utils,
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
-            mock_auth_utils.get_user_by_email = AsyncMock(return_value=existing_user)
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
+            with (
+                patch("app.routers.auth.auth_utils") as mock_auth_utils,
+            ):
+                mock_auth_utils.get_user_by_email = AsyncMock(return_value=existing_user)
 
-            response = client.put(
-                "/api/v1/auth/me",
-                json=update_data,
-                headers={"Authorization": "Bearer valid_token"},
-            )
+                response = client.put(
+                    "/api/v1/auth/me",
+                    json=update_data,
+                    headers={"Authorization": "Bearer valid_token"},
+                )
 
-        assert response.status_code == 400
-        data = response.json()
-        assert "Email already in use by another account" in data["detail"]
+            assert response.status_code == 400
+            data = response.json()
+            assert "Email already in use by another account" in data["detail"]
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_update_profile_max_characters(self, client, mock_user):
         """Test updating user profile max_characters."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         update_data = {"max_characters": 8}
 
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
-
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
             response = client.put(
                 "/api/v1/auth/me",
                 json=update_data,
                 headers={"Authorization": "Bearer valid_token"},
             )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["max_characters"] == 8
+            assert response.status_code == 200
+            data = response.json()
+            assert data["max_characters"] == 8
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_update_profile_max_characters_invalid(self, client, mock_user):
         """Test updating max_characters with invalid value."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         update_data = {"max_characters": 15}  # Exceeds limit of 10
 
-        with patch("app.routers.auth.get_current_user", return_value=mock_user):
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
             response = client.put(
                 "/api/v1/auth/me",
                 json=update_data,
                 headers={"Authorization": "Bearer valid_token"},
             )
 
-        assert response.status_code == 422  # Validation error
-        data = response.json()
-        assert "less than or equal to 10" in str(data["detail"])
+            assert response.status_code == 422  # Validation error
+            data = response.json()
+            assert "less than or equal to 10" in str(data["detail"])
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_update_profile_username_invalid_format(self, client, mock_user):
         """Test updating username with invalid format."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         update_data = {"username": "invalid-username!"}  # Contains invalid characters
 
-        with patch("app.routers.auth.get_current_user", return_value=mock_user):
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
             response = client.put(
                 "/api/v1/auth/me",
                 json=update_data,
                 headers={"Authorization": "Bearer valid_token"},
             )
 
-        assert response.status_code == 422  # Validation error
-        data = response.json()
-        assert "alphanumeric characters and underscores" in str(data["detail"])
+            assert response.status_code == 422  # Validation error
+            data = response.json()
+            assert "alphanumeric characters and underscores" in str(data["detail"])
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_update_profile_username_too_short(self, client, mock_user):
         """Test updating username that's too short."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         update_data = {"username": "ab"}  # Less than 3 characters
 
-        with patch("app.routers.auth.get_current_user", return_value=mock_user):
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
             response = client.put(
                 "/api/v1/auth/me",
                 json=update_data,
                 headers={"Authorization": "Bearer valid_token"},
             )
 
-        assert response.status_code == 422  # Validation error
-        data = response.json()
-        assert "at least 3 characters" in str(data["detail"])
+            assert response.status_code == 422  # Validation error
+            data = response.json()
+            assert "at least 3 characters" in str(data["detail"])
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
     def test_update_profile_multiple_fields(self, client, mock_user):
         """Test updating multiple profile fields at once."""
+        from app.routers.auth import get_current_user
+        from app.main import app
+        
         update_data = {
             "username": "newuser",
             "email": "newuser@example.com",
@@ -742,29 +855,33 @@ class TestAuthEndpoints:
             "privacy_settings": {"show_online": False},
         }
 
-        with (
-            patch("app.routers.auth.get_current_user", return_value=mock_user),
-            patch("app.routers.auth.get_session") as mock_get_session,
-            patch("app.routers.auth.auth_utils") as mock_auth_utils,
-        ):
-            mock_session = Mock()
-            mock_get_session.return_value = mock_session
-            mock_auth_utils.get_user_by_username = AsyncMock(return_value=None)
-            mock_auth_utils.get_user_by_email = AsyncMock(return_value=None)
+        # Override the dependency
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        
+        try:
+            with (
+                patch("app.routers.auth.auth_utils") as mock_auth_utils,
+            ):
+                mock_auth_utils.get_user_by_username = AsyncMock(return_value=None)
+                mock_auth_utils.get_user_by_email = AsyncMock(return_value=None)
 
-            response = client.put(
-                "/api/v1/auth/me",
-                json=update_data,
-                headers={"Authorization": "Bearer valid_token"},
-            )
+                response = client.put(
+                    "/api/v1/auth/me",
+                    json=update_data,
+                    headers={"Authorization": "Bearer valid_token"},
+                )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["username"] == "newuser"
-        assert data["email"] == "newuser@example.com"
-        assert data["max_characters"] == 7
-        assert data["chat_settings"] == {"notifications": True, "sound": False}
-        assert data["privacy_settings"] == {"show_online": False}
+            assert response.status_code == 200
+            data = response.json()
+            assert data["username"] == "newuser"
+            assert data["email"] == "newuser@example.com"
+            assert data["max_characters"] == 7
+            assert data["chat_settings"] == {"notifications": True, "sound": False}
+            assert data["privacy_settings"] == {"show_online": False}
+        finally:
+            # Clean up
+            if get_current_user in app.dependency_overrides:
+                del app.dependency_overrides[get_current_user]
 
 
 class TestAuthenticationFlow:
@@ -809,10 +926,18 @@ class TestAuthenticationFlow:
             assert register_response.status_code == 200
 
             # 2. Login user
+            from datetime import datetime, timezone
             mock_user = Mock()
             mock_user.id = uuid4()
             mock_user.username = "flowtest"
+            mock_user.email = "flowtest@example.com"
+            mock_user.role = "player"
             mock_user.status = UserStatus.ACTIVE
+            mock_user.is_verified = True
+            mock_user.created_at = datetime.now(timezone.utc)
+            mock_user.max_characters = 5
+            mock_user.chat_settings = {}
+            mock_user.privacy_settings = {}
 
             mock_auth_utils.authenticate_user = AsyncMock(return_value=mock_user)
 
@@ -823,30 +948,44 @@ class TestAuthenticationFlow:
 
             # 3. Get profile
             mock_current_user = Mock()
+            mock_current_user.id = uuid4()
             mock_current_user.username = "flowtest"
             mock_current_user.email = "flowtest@example.com"
-            mock_current_user.role = UserRole.PLAYER
+            mock_current_user.role = "player"
+            mock_current_user.status = "active"
+            mock_current_user.is_verified = True
+            mock_current_user.created_at = datetime.now(timezone.utc)
+            mock_current_user.updated_at = datetime.now(timezone.utc)
+            mock_current_user.last_login = datetime.now(timezone.utc)
+            mock_current_user.max_characters = 5
+            mock_current_user.chat_settings = {}
+            mock_current_user.privacy_settings = {}
 
-            with patch(
-                "app.routers.auth.get_current_user", return_value=mock_current_user
-            ):
+            from app.routers.auth import get_current_user
+            from app.main import app
+            
+            # Override the dependency
+            app.dependency_overrides[get_current_user] = lambda: mock_current_user
+            
+            try:
                 profile_response = client.get(
                     "/api/v1/auth/me", headers={"Authorization": "Bearer access_token"}
                 )
                 assert profile_response.status_code == 200
 
-            # 4. Logout
-            mock_credentials = Mock()
-            mock_credentials.credentials = "access_token"
-            mock_security.return_value = mock_credentials
-            mock_auth_utils.revoke_user_session = AsyncMock()
+                # 4. Logout
+                mock_credentials = Mock()
+                mock_credentials.credentials = "access_token"
+                mock_security.return_value = mock_credentials
+                mock_auth_utils.revoke_user_session = AsyncMock()
 
-            with patch(
-                "app.routers.auth.get_current_user", return_value=mock_current_user
-            ):
                 logout_response = client.post(
                     "/api/v1/auth/logout",
                     json={"revoke_all_sessions": False},
                     headers={"Authorization": "Bearer access_token"},
                 )
                 assert logout_response.status_code == 200
+            finally:
+                # Clean up
+                if get_current_user in app.dependency_overrides:
+                    del app.dependency_overrides[get_current_user]

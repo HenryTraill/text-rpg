@@ -9,7 +9,7 @@ Tests core authentication functionality including:
 
 import pytest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, AsyncMock, patch
 from uuid import uuid4
 from jose import jwt
 
@@ -135,53 +135,53 @@ class TestAuthUtils:
     @pytest.mark.asyncio
     async def test_get_user_by_username(self):
         """Test getting user by username."""
-        mock_session = Mock()
+        mock_session = AsyncMock()
         mock_result = Mock()
         mock_user = Mock()
 
-        mock_session.exec.return_value = mock_result
-        mock_result.first.return_value = mock_user
+        mock_result.scalars.return_value.first.return_value = mock_user
+        mock_session.execute.return_value = mock_result
 
         result = await AuthUtils.get_user_by_username(mock_session, "testuser")
 
         assert result == mock_user
-        mock_session.exec.assert_called_once()
+        mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_user_by_email(self):
         """Test getting user by email."""
-        mock_session = Mock()
+        mock_session = AsyncMock()
         mock_result = Mock()
         mock_user = Mock()
 
-        mock_session.exec.return_value = mock_result
-        mock_result.first.return_value = mock_user
+        mock_result.scalars.return_value.first.return_value = mock_user
+        mock_session.execute.return_value = mock_result
 
         result = await AuthUtils.get_user_by_email(mock_session, "test@example.com")
 
         assert result == mock_user
-        mock_session.exec.assert_called_once()
+        mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_user_by_id(self):
         """Test getting user by ID."""
-        mock_session = Mock()
+        mock_session = AsyncMock()
         mock_result = Mock()
         mock_user = Mock()
         user_id = uuid4()
 
-        mock_session.exec.return_value = mock_result
-        mock_result.first.return_value = mock_user
+        mock_result.scalars.return_value.first.return_value = mock_user
+        mock_session.execute.return_value = mock_result
 
         result = await AuthUtils.get_user_by_id(mock_session, user_id)
 
         assert result == mock_user
-        mock_session.exec.assert_called_once()
+        mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_authenticate_user_success(self):
         """Test successful user authentication."""
-        mock_session = Mock()
+        mock_session = AsyncMock()
         password = "TestPassword123!"
         hashed_password = AuthUtils.get_password_hash(password)
 
@@ -198,7 +198,7 @@ class TestAuthUtils:
     @pytest.mark.asyncio
     async def test_authenticate_user_wrong_password(self):
         """Test user authentication with wrong password."""
-        mock_session = Mock()
+        mock_session = AsyncMock()
         password = "TestPassword123!"
         wrong_password = "WrongPassword"
         hashed_password = AuthUtils.get_password_hash(password)
@@ -216,9 +216,12 @@ class TestAuthUtils:
     @pytest.mark.asyncio
     async def test_authenticate_user_not_found(self):
         """Test user authentication with non-existent user."""
-        mock_session = Mock()
+        mock_session = AsyncMock()
 
-        with patch.object(AuthUtils, "get_user_by_username", return_value=None):
+        with (
+            patch.object(AuthUtils, "get_user_by_username", return_value=None),
+            patch.object(AuthUtils, "get_user_by_email", return_value=None)
+        ):
             result = await AuthUtils.authenticate_user(
                 mock_session, "nonexistent", "password"
             )
@@ -228,14 +231,10 @@ class TestAuthUtils:
     @pytest.mark.asyncio
     async def test_create_user_session(self):
         """Test creating a user session."""
-        mock_session = Mock()
+        mock_session = AsyncMock()
         user_id = uuid4()
         token_jti = str(uuid4())
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
-
-        mock_session.add = Mock()
-        mock_session.commit = Mock()
-        mock_session.refresh = Mock()
 
         result = await AuthUtils.create_user_session(
             session=mock_session,
@@ -262,14 +261,14 @@ class TestAuthUtils:
     @pytest.mark.asyncio
     async def test_revoke_user_session_success(self):
         """Test successful session revocation."""
-        mock_session = Mock()
+        mock_session = AsyncMock()
         mock_result = Mock()
         mock_user_session = Mock()
         mock_user_session.is_active = True
         token_jti = str(uuid4())
 
-        mock_session.exec.return_value = mock_result
-        mock_result.first.return_value = mock_user_session
+        mock_result.scalars.return_value.first.return_value = mock_user_session
+        mock_session.execute.return_value = mock_result
 
         result = await AuthUtils.revoke_user_session(mock_session, token_jti)
 
@@ -281,12 +280,12 @@ class TestAuthUtils:
     @pytest.mark.asyncio
     async def test_revoke_user_session_not_found(self):
         """Test session revocation when session not found."""
-        mock_session = Mock()
+        mock_session = AsyncMock()
         mock_result = Mock()
         token_jti = str(uuid4())
 
-        mock_session.exec.return_value = mock_result
-        mock_result.first.return_value = None
+        mock_result.scalars.return_value.first.return_value = None
+        mock_session.execute.return_value = mock_result
 
         result = await AuthUtils.revoke_user_session(mock_session, token_jti)
 
@@ -297,13 +296,13 @@ class TestAuthUtils:
     @pytest.mark.asyncio
     async def test_is_token_revoked_active(self):
         """Test checking if token is revoked for active token."""
-        mock_session = Mock()
+        mock_session = AsyncMock()
         mock_result = Mock()
         mock_user_session = Mock()
         token_jti = str(uuid4())
 
-        mock_session.exec.return_value = mock_result
-        mock_result.first.return_value = mock_user_session
+        mock_result.scalars.return_value.first.return_value = mock_user_session
+        mock_session.execute.return_value = mock_result
 
         result = await AuthUtils.is_token_revoked(mock_session, token_jti)
 
@@ -312,12 +311,12 @@ class TestAuthUtils:
     @pytest.mark.asyncio
     async def test_is_token_revoked_inactive(self):
         """Test checking if token is revoked for inactive token."""
-        mock_session = Mock()
+        mock_session = AsyncMock()
         mock_result = Mock()
         token_jti = str(uuid4())
 
-        mock_session.exec.return_value = mock_result
-        mock_result.first.return_value = None  # No active session found
+        mock_result.scalars.return_value.first.return_value = None  # No active session found
+        mock_session.execute.return_value = mock_result
 
         result = await AuthUtils.is_token_revoked(mock_session, token_jti)
 

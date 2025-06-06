@@ -41,6 +41,40 @@ def test_client():
 
 
 @pytest.fixture
+def authenticated_client(sample_user):
+    """Create a test client with authentication dependency overridden."""
+    from app.routers.auth import get_current_user
+    from app.core.database import get_session
+    
+    # Override dependencies
+    app.dependency_overrides[get_current_user] = lambda: sample_user
+    app.dependency_overrides[get_session] = lambda: AsyncMock()
+    
+    client = TestClient(app)
+    
+    yield client
+    
+    # Clean up overrides
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def override_get_current_user():
+    """Helper fixture to override get_current_user dependency."""
+    from app.routers.auth import get_current_user
+    
+    def _override_user(user):
+        app.dependency_overrides[get_current_user] = lambda: user
+        return lambda: None  # Return cleanup function
+    
+    yield _override_user
+    
+    # Clean up
+    if get_current_user in app.dependency_overrides:
+        del app.dependency_overrides[get_current_user]
+
+
+@pytest.fixture
 def mock_db_session():
     """Create a mock database session."""
     session = Mock()
@@ -191,23 +225,41 @@ def mock_health_checker():
 @pytest.fixture(autouse=True)
 def mock_database_dependencies():
     """Automatically mock database dependencies for all tests."""
+    from app.core.database import get_session
+    
+    # Create mock session with async methods
+    mock_session = AsyncMock()
+    mock_session.add = Mock()
+    mock_session.commit = AsyncMock()
+    mock_session.refresh = AsyncMock()
+    mock_session.execute = AsyncMock()
+    mock_session.exec = Mock()  # For backward compatibility
+    mock_session.rollback = AsyncMock()
+    
+    # Mock result objects
+    mock_result = Mock()
+    mock_result.scalars.return_value.first.return_value = None
+    mock_result.scalars.return_value.all.return_value = []
+    mock_result.fetchone.return_value = None
+    mock_result.scalar.return_value = None
+    mock_session.execute.return_value = mock_result
+    mock_session.exec.return_value = mock_result
+    
+    # Override FastAPI dependency
+    app.dependency_overrides[get_session] = lambda: mock_session
+    
     with (
-        patch("app.core.database.get_session") as mock_get_session,
         patch("app.core.database.get_engine") as mock_get_engine,
     ):
-        # Mock session
-        mock_session = Mock()
-        mock_session.add = Mock()
-        mock_session.commit = Mock()
-        mock_session.refresh = Mock()
-        mock_session.exec = Mock()
-        mock_get_session.return_value = mock_session
-
         # Mock engine
         mock_engine = Mock()
         mock_get_engine.return_value = mock_engine
 
         yield {"session": mock_session, "engine": mock_engine}
+    
+    # Clean up dependency overrides
+    if get_session in app.dependency_overrides:
+        del app.dependency_overrides[get_session]
 
 
 @pytest.fixture(autouse=True)

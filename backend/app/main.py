@@ -134,7 +134,42 @@ async def health_check(
     Returns:
         dict: Comprehensive health status including all system components
     """
-    return await health_checker.get_health_status(include_details=details)
+    from fastapi import Response
+    
+    try:
+        health_status = await health_checker.get_health_status(include_details=details)
+        
+        # Set appropriate HTTP status code based on health status
+        if health_status.get("status") == "unhealthy":
+            import json
+            response = Response(
+                content=json.dumps(health_status),
+                status_code=503,
+                media_type="application/json",
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+            )
+            return response
+        
+        import json
+        response = Response(
+            content=json.dumps(health_status),
+            status_code=200,
+            media_type="application/json",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+        return response
+        
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        import json
+        error_data = {"error": str(e)}
+        response = Response(
+            content=json.dumps(error_data),
+            status_code=500,
+            media_type="application/json",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+        return response
 
 
 @app.get("/ready")
@@ -145,8 +180,44 @@ async def readiness_check():
     Returns:
         dict: Readiness status
     """
-    is_ready = await health_checker.is_ready()
-    return {"ready": is_ready, "status": "ready" if is_ready else "not_ready"}
+    from fastapi import Response
+    from datetime import datetime, timezone
+    import json
+    
+    try:
+        is_ready = await health_checker.is_ready()
+        
+        response_data = {
+            "ready": is_ready,
+            "status": "ready" if is_ready else "not_ready",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+        status_code = 200 if is_ready else 503
+        
+        return Response(
+            content=json.dumps(response_data),
+            status_code=status_code,
+            media_type="application/json",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+        
+    except Exception as e:
+        logger.error(f"Readiness check failed: {e}")
+        
+        error_response = {
+            "ready": False,
+            "status": "not_ready",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "error": str(e)
+        }
+        
+        return Response(
+            content=json.dumps(error_response),
+            status_code=503,
+            media_type="application/json",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
 
 
 @app.get("/alive")
@@ -157,8 +228,43 @@ async def liveness_check():
     Returns:
         dict: Liveness status
     """
-    is_alive = await health_checker.is_alive()
-    return {"alive": is_alive, "status": "alive" if is_alive else "dead"}
+    from fastapi import Response
+    from datetime import datetime, timezone
+    import json
+    
+    try:
+        is_alive = await health_checker.is_alive()
+        
+        response_data = {
+            "alive": is_alive,
+            "status": "alive" if is_alive else "dead",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+        return Response(
+            content=json.dumps(response_data),
+            status_code=200,  # Liveness always returns 200
+            media_type="application/json",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+        
+    except Exception as e:
+        logger.error(f"Liveness check failed: {e}")
+        # Liveness should always return alive (200) even on exception
+        
+        error_response = {
+            "alive": True,
+            "status": "alive",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "error": str(e)
+        }
+        
+        return Response(
+            content=json.dumps(error_response),
+            status_code=200,  # Liveness always returns 200
+            media_type="application/json",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
 
 
 @app.get("/api/info")

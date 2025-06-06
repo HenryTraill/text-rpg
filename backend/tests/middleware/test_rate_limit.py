@@ -99,7 +99,7 @@ class TestRateLimitMiddleware:
         """Test user ID extraction from valid JWT token."""
         mock_request.headers = {"Authorization": "Bearer valid_token"}
 
-        with patch("app.middleware.rate_limit.auth_utils") as mock_auth:
+        with patch("app.core.auth.auth_utils") as mock_auth:
             mock_auth.verify_token.return_value = {"sub": "user123"}
 
             user_id = await rate_limiter._extract_user_id_from_token(mock_request)
@@ -111,7 +111,7 @@ class TestRateLimitMiddleware:
         """Test user ID extraction from invalid JWT token."""
         mock_request.headers = {"Authorization": "Bearer invalid_token"}
 
-        with patch("app.middleware.rate_limit.auth_utils") as mock_auth:
+        with patch("app.core.auth.auth_utils") as mock_auth:
             mock_auth.verify_token.side_effect = Exception("Invalid token")
 
             user_id = await rate_limiter._extract_user_id_from_token(mock_request)

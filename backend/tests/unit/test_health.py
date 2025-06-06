@@ -120,8 +120,12 @@ class TestHealthChecker:
         mock_result.scalar.return_value = "PostgreSQL 13.0"
 
         mock_conn.execute.return_value = mock_result
-        mock_engine.begin.return_value.__aenter__.return_value = mock_conn
-        mock_engine.begin.return_value.__aexit__.return_value = None
+        
+        # Mock async context manager properly
+        async_context_manager = AsyncMock()
+        async_context_manager.__aenter__ = AsyncMock(return_value=mock_conn)
+        async_context_manager.__aexit__ = AsyncMock(return_value=None)
+        mock_engine.begin.return_value = async_context_manager
 
         with patch("app.core.health.get_engine", return_value=mock_engine):
             result = await mock_health_checker._check_database()
@@ -150,27 +154,22 @@ class TestHealthChecker:
         mock_health_checker.redis_client = mock_redis_client
 
         # Mock asyncio.to_thread calls
-        async def mock_ping():
-            return True
-
-        async def mock_info(section=None):
-            if section == "memory":
-                return {"used_memory_human": "10M", "maxmemory_human": "100M"}
-            elif section == "keyspace":
-                return {"db0": {"keys": 42}}
-            else:
+        async def mock_to_thread(func, *args):
+            if func == mock_redis_client.ping:
+                return True
+            elif func == mock_redis_client.info:
+                section = args[0] if args else None
                 return {
-                    "redis_version": "6.2.0",
-                    "connected_clients": 5,
-                    "uptime_in_seconds": 3600,
-                }
-
-        with patch("asyncio.to_thread") as mock_to_thread:
-            mock_to_thread.side_effect = lambda func, *args: {
-                mock_redis_client.ping: mock_ping(),
-                mock_redis_client.info: mock_info(args[0] if args else None),
-            }[func]
-
+                    "memory": {"used_memory_human": "10M", "maxmemory_human": "100M"},
+                    "keyspace": {"db0": {"keys": 42}},
+                    None: {
+                        "redis_version": "6.2.0",
+                        "connected_clients": 5,
+                        "uptime_in_seconds": 3600,
+                    }
+                }.get(section, {})
+        
+        with patch("asyncio.to_thread", side_effect=mock_to_thread):
             result = await mock_health_checker._check_redis()
 
         assert result["status"] == "healthy"
@@ -255,24 +254,24 @@ class TestHealthChecker:
     async def test_check_system_resources_error(self, mock_health_checker):
         """Test system resource check when resources are critical."""
         mock_memory = Mock()
-        mock_memory.percent = 98.0  # Critical memory usage
+        mock_memory.percent = 97.0  # Critical memory usage (>95% triggers error)
         mock_memory.available = 1 * 1024**3
         mock_memory.total = 16 * 1024**3
 
         mock_disk = Mock()
-        mock_disk.percent = 75.0
+        mock_disk.percent = 96.0  # Critical disk usage (>95% triggers error)
         mock_disk.free = 50 * 1024**3
         mock_disk.total = 250 * 1024**3
 
         with (
-            patch("psutil.cpu_percent", return_value=30.0),
+            patch("psutil.cpu_percent", return_value=97.0),  # Critical CPU usage
             patch("psutil.virtual_memory", return_value=mock_memory),
             patch("psutil.disk_usage", return_value=mock_disk),
         ):
             result = await mock_health_checker._check_system_resources()
 
         assert result["status"] == "error"
-        assert result["memory"]["percent"] == 98.0
+        assert result["memory"]["percent"] == 97.0
 
     @pytest.mark.asyncio
     async def test_get_detailed_metrics(self, mock_health_checker):

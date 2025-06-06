@@ -229,10 +229,10 @@ class HealthChecker:
 
             # Determine status based on resource usage
             status = "healthy"
-            if cpu_percent > 80 or memory.percent > 80 or disk.percent > 90:
-                status = "warning"
-            elif cpu_percent > 95 or memory.percent > 95 or disk.percent > 95:
+            if cpu_percent > 95 or memory.percent > 95 or disk.percent > 95:
                 status = "error"
+            elif cpu_percent > 80 or memory.percent > 80 or disk.percent > 90:
+                status = "warning"
 
             return {
                 "status": status,
