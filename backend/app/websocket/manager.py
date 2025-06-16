@@ -7,15 +7,13 @@ with Redis pub/sub integration for real-time communication.
 
 import json
 import logging
-from typing import Dict, List, Optional, Set
+from typing import Dict, Optional, Set
 from uuid import UUID, uuid4
 
 import redis.asyncio as redis
 from fastapi import WebSocket, WebSocketDisconnect
-from sqlmodel import Session
 
 from app.core.auth import auth_utils
-from app.core.database import get_session
 from app.core.redis import get_redis
 
 logger = logging.getLogger(__name__)

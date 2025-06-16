@@ -4,8 +4,7 @@ Tests for database connection and session management.
 Validates database engine creation, session handling, and health checks.
 """
 
-import pytest
-from unittest.mock import patch, AsyncMock, Mock
+from unittest.mock import patch, AsyncMock
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlmodel.ext.asyncio.session import AsyncSession
 

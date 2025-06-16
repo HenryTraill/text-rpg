@@ -89,7 +89,6 @@ def mock_db_session():
 def db_session():
     """Create a database session fixture with realistic mock behavior."""
     from sqlalchemy.exc import IntegrityError
-    from app.core.database import get_session
     import uuid
     
     # Storage for mocked data - simulates database persistence
@@ -183,7 +182,6 @@ def db_session():
     
     async def mock_execute(statement):
         """Mock execute that simulates SELECT queries with sophisticated WHERE clause parsing."""
-        import re
         
         # Try to get compiled SQL with actual parameter values
         statement_str = str(statement).lower()

@@ -4,9 +4,7 @@ Tests for datetime utility functions.
 Validates timezone handling and datetime operations.
 """
 
-import pytest
 from datetime import datetime, timezone
-from unittest.mock import patch
 
 from app.core.datetime_utils import utc_now, utc_now_aware, to_naive_utc, from_timestamp_utc
 

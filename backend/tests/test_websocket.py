@@ -4,12 +4,12 @@ Tests for WebSocket functionality.
 
 import json
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 from fastapi.testclient import TestClient
 from fastapi.websockets import WebSocketState
 
 from app.websocket.manager import ConnectionManager, WebSocketConnection
-from app.websocket.auth import authenticate_websocket, validate_channel_access
+from app.websocket.auth import validate_channel_access
 from app.websocket.health import WebSocketHealthMonitor, WebSocketMetrics
 
 

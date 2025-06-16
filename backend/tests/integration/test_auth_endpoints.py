@@ -13,7 +13,7 @@ Tests complete authentication flow including:
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, Mock, AsyncMock
-from datetime import datetime, timedelta
+from datetime import datetime
 from uuid import uuid4
 
 from app.main import app

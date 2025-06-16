@@ -4,13 +4,11 @@ Tests for Redis connection and caching functionality.
 Validates Redis connection management, mock Redis behavior, and error handling.
 """
 
-import pytest
-from unittest.mock import patch, AsyncMock, Mock
-import redis.asyncio as redis
+from unittest.mock import patch, AsyncMock
 
 from app.core.redis import (
     init_redis, get_redis, close_redis, 
-    MockRedis, MockPubSub, _redis_pool, _redis_client
+    MockRedis, MockPubSub
 )
 
 

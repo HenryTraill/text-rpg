@@ -4,12 +4,10 @@ Simplified tests for configuration.
 Tests basic configuration loading and validation.
 """
 
-import pytest
 import os
 from unittest.mock import patch
 
 from app.core.config import Settings, settings
-from app.core.database import get_session
 
 
 class TestSettings:
