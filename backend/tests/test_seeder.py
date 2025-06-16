@@ -4,12 +4,11 @@ Tests for database seeder functionality.
 Validates that the seeder properly populates the database with initial game data.
 """
 
-import pytest
 from sqlmodel import select
 
 from app.core.seeder import (
     seed_skills, seed_starter_zone, seed_starter_items,
-    seed_chat_channels, seed_npc_merchant, seed_database
+    seed_chat_channels, seed_npc_merchant
 )
 from app.models import *
 

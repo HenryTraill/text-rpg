@@ -1,5 +1,4 @@
 """
-<<<<<<< Updated upstream
 Authentication utilities for JWT token handling and password management.
 
 This module provides:
@@ -20,24 +19,10 @@ from sqlmodel import Session, select
 
 from .config import settings
 from ..models.user import User, UserSession
-=======
-Authentication and JWT token utilities for the text RPG backend.
-
-Provides JWT token creation, validation, and user authentication functionality.
-"""
-
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
-from jose import jwt, JWTError
-from passlib.context import CryptContext
-
-from .config import settings
->>>>>>> Stashed changes
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-<<<<<<< Updated upstream
 # HTTP Bearer token handler
 security = HTTPBearer()
 
@@ -210,91 +195,3 @@ class AuthUtils:
 
 # Global auth utilities instance
 auth_utils = AuthUtils()
-=======
-
-def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """
-    Create a JWT access token.
-    
-    Args:
-        data: Data to encode in the token
-        expires_delta: Optional expiration time delta
-        
-    Returns:
-        JWT token string
-    """
-    to_encode = data.copy()
-    
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
-    
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
-    return encoded_jwt
-
-
-def verify_token(token: str) -> Dict[str, Any]:
-    """
-    Verify and decode a JWT token.
-    
-    Args:
-        token: JWT token string to verify
-        
-    Returns:
-        Decoded token payload
-        
-    Raises:
-        InvalidTokenError: If token is invalid or expired
-    """
-    try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-        return payload
-    except JWTError:
-        raise JWTError("Invalid or expired token")
-
-
-def hash_password(password: str) -> str:
-    """
-    Hash a password using bcrypt.
-    
-    Args:
-        password: Plain text password
-        
-    Returns:
-        Hashed password
-    """
-    return pwd_context.hash(password)
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Verify a password against its hash.
-    
-    Args:
-        plain_password: Plain text password
-        hashed_password: Hashed password to compare against
-        
-    Returns:
-        True if password matches, False otherwise
-    """
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def create_refresh_token(data: Dict[str, Any]) -> str:
-    """
-    Create a JWT refresh token with longer expiration.
-    
-    Args:
-        data: Data to encode in the token
-        
-    Returns:
-        JWT refresh token string
-    """
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=7)  # Refresh tokens last 7 days
-    to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
-    return encoded_jwt 
->>>>>>> Stashed changes
