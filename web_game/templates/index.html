@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Lost Kingdom - Text RPG</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Title Screen -->
+        <div id="title-screen" class="screen active">
+            <div class="title-box">
+                <h1 class="game-title">⚔️ THE LOST KINGDOM ⚔️</h1>
+                <p class="subtitle">A Text-Based RPG Adventure</p>
+                <button class="btn btn-primary" onclick="showCharacterCreation()">New Game</button>
+                <button class="btn btn-secondary" onclick="showInstructions()">How to Play</button>
+            </div>
+        </div>
+
+        <!-- Instructions Screen -->
+        <div id="instructions-screen" class="screen">
+            <div class="instructions-box">
+                <h2>How to Play</h2>
+                <div class="instructions-content">
+                    <h3>⚔️ Combat</h3>
+                    <p>Fight enemies in turn-based combat. Attack, use items, or flee!</p>
+
+                    <h3>🗺️ Exploration</h3>
+                    <p>Travel between locations, talk to NPCs, and discover secrets.</p>
+
+                    <h3>📦 Inventory</h3>
+                    <p>Collect weapons, armor, and potions. Equip items to boost your stats.</p>
+
+                    <h3>🎯 Quests</h3>
+                    <p>Complete the main quest by defeating the Dragon!</p>
+
+                    <h3>🏪 Shopping</h3>
+                    <p>Buy and sell items at the General Store.</p>
+                </div>
+                <button class="btn btn-secondary" onclick="showTitleScreen()">Back</button>
+            </div>
+        </div>
+
+        <!-- Character Creation Screen -->
+        <div id="character-creation" class="screen">
+            <div class="creation-box">
+                <h2>Create Your Character</h2>
+                <div class="form-group">
+                    <label for="char-name">Character Name:</label>
+                    <input type="text" id="char-name" placeholder="Enter your name" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label>Choose Your Class:</label>
+                    <div class="class-grid">
+                        <div class="class-card" onclick="selectClass('Warrior')">
+                            <h3>⚔️ Warrior</h3>
+                            <p>High HP and defense</p>
+                            <div class="stats">
+                                <span>HP: 120</span>
+                                <span>ATK: 15</span>
+                                <span>DEF: 8</span>
+                            </div>
+                        </div>
+                        <div class="class-card" onclick="selectClass('Mage')">
+                            <h3>🔮 Mage</h3>
+                            <p>Powerful attacks</p>
+                            <div class="stats">
+                                <span>HP: 80</span>
+                                <span>ATK: 20</span>
+                                <span>DEF: 3</span>
+                            </div>
+                        </div>
+                        <div class="class-card" onclick="selectClass('Rogue')">
+                            <h3>🗡️ Rogue</h3>
+                            <p>High crit chance</p>
+                            <div class="stats">
+                                <span>HP: 90</span>
+                                <span>ATK: 18</span>
+                                <span>DEF: 5</span>
+                            </div>
+                        </div>
+                        <div class="class-card" onclick="selectClass('Cleric')">
+                            <h3>✨ Cleric</h3>
+                            <p>Balanced healer</p>
+                            <div class="stats">
+                                <span>HP: 100</span>
+                                <span>ATK: 12</span>
+                                <span>DEF: 6</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="createCharacter()">Start Adventure</button>
+                <button class="btn btn-secondary" onclick="showTitleScreen()">Back</button>
+            </div>
+        </div>
+
+        <!-- Main Game Screen -->
+        <div id="game-screen" class="screen">
+            <!-- Header with Stats -->
+            <div class="game-header">
+                <div class="char-stats">
+                    <h3 id="char-name-display">Hero</h3>
+                    <div class="stat-bars">
+                        <div class="stat-bar">
+                            <span>HP</span>
+                            <div class="bar health-bar">
+                                <div id="health-fill" class="bar-fill" style="width: 100%"></div>
+                            </div>
+                            <span id="health-text">100/100</span>
+                        </div>
+                        <div class="stat-bar">
+                            <span>XP</span>
+                            <div class="bar exp-bar">
+                                <div id="exp-fill" class="bar-fill" style="width: 0%"></div>
+                            </div>
+                            <span id="exp-text">0/100</span>
+                        </div>
+                    </div>
+                    <div class="quick-stats">
+                        <span>⚔️ <span id="attack-stat">10</span></span>
+                        <span>🛡️ <span id="defense-stat">5</span></span>
+                        <span>💰 <span id="gold-stat">50</span></span>
+                        <span>⭐ Lvl <span id="level-stat">1</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Game Area -->
+            <div class="game-main">
+                <!-- Game Log -->
+                <div class="game-log-container">
+                    <div id="game-log" class="game-log"></div>
+                </div>
+
+                <!-- Sidebar -->
+                <div class="sidebar">
+                    <div class="tabs">
+                        <button class="tab-btn active" onclick="showTab('location')">📍 Location</button>
+                        <button class="tab-btn" onclick="showTab('inventory')">🎒 Inventory</button>
+                        <button class="tab-btn" onclick="showTab('quests')">🎯 Quests</button>
+                    </div>
+
+                    <!-- Location Tab -->
+                    <div id="location-tab" class="tab-content active">
+                        <h3 id="location-name">Village Square</h3>
+                        <p id="location-desc">The heart of the village.</p>
+
+                        <div class="action-section">
+                            <h4>Actions:</h4>
+                            <div id="location-actions"></div>
+                        </div>
+                    </div>
+
+                    <!-- Inventory Tab -->
+                    <div id="inventory-tab" class="tab-content">
+                        <h3>Inventory</h3>
+                        <div id="inventory-list"></div>
+                    </div>
+
+                    <!-- Quests Tab -->
+                    <div id="quests-tab" class="tab-content">
+                        <h3>Quests</h3>
+                        <div id="quests-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Combat Modal -->
+            <div id="combat-modal" class="modal">
+                <div class="modal-content combat-modal">
+                    <h2>⚔️ COMBAT ⚔️</h2>
+                    <div class="combat-info">
+                        <div class="combatant player-combatant">
+                            <h3 id="combat-player-name">Hero</h3>
+                            <div class="combat-health-bar">
+                                <div id="combat-player-health" class="bar-fill" style="width: 100%"></div>
+                            </div>
+                            <span id="combat-player-hp">100/100 HP</span>
+                        </div>
+                        <div class="vs">VS</div>
+                        <div class="combatant enemy-combatant">
+                            <h3 id="combat-enemy-name">Enemy</h3>
+                            <div class="combat-health-bar">
+                                <div id="combat-enemy-health" class="bar-fill enemy-health" style="width: 100%"></div>
+                            </div>
+                            <span id="combat-enemy-hp">50/50 HP</span>
+                        </div>
+                    </div>
+                    <div id="combat-log" class="combat-log"></div>
+                    <div class="combat-actions">
+                        <button class="btn btn-attack" onclick="combatAction('attack')">⚔️ Attack</button>
+                        <button class="btn btn-item" onclick="showCombatItems()">🧪 Use Item</button>
+                        <button class="btn btn-flee" onclick="combatAction('run')">💨 Run</button>
+                    </div>
+                    <div id="combat-items" class="combat-items hidden"></div>
+                </div>
+            </div>
+
+            <!-- Shop Modal -->
+            <div id="shop-modal" class="modal">
+                <div class="modal-content shop-modal">
+                    <h2>🏪 General Store</h2>
+                    <div class="shop-tabs">
+                        <button class="shop-tab-btn active" onclick="showShopTab('buy')">Buy</button>
+                        <button class="shop-tab-btn" onclick="showShopTab('sell')">Sell</button>
+                    </div>
+                    <div id="buy-tab" class="shop-tab-content active">
+                        <div id="shop-items"></div>
+                    </div>
+                    <div id="sell-tab" class="shop-tab-content">
+                        <div id="sell-items"></div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="closeShop()">Close</button>
+                </div>
+            </div>
+
+            <!-- NPC Modal -->
+            <div id="npc-modal" class="modal">
+                <div class="modal-content npc-modal">
+                    <h2 id="npc-name">NPC</h2>
+                    <p id="npc-dialogue"></p>
+                    <button class="btn btn-primary" onclick="closeNpcModal()">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/game.js') }}"></script>
+</body>
+</html>

@@ -351,4 +351,6 @@ game_data/backups/
 user_uploads/
 game_logs/
 chat_logs/
-admin_logs/ 
+admin_logs/
+savegame.json
+flask_session/ 
